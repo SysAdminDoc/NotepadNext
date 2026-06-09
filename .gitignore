@@ -62,3 +62,7 @@ CMakeLists.txt.user*
 
 .cpm-cache/
 CLAUDE.md
+
+# Markdown files local-only (except README)
+*.md
+!README.md

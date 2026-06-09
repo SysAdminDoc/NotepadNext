@@ -139,6 +139,15 @@
      <addaction name="actionRemoveEmptyLines"/>
      <addaction name="actionRemoveDuplicateLines"/>
      <addaction name="actionRemoveConsecutiveDuplicateLines"/>
+     <addaction name="actionReverseLineOrder"/>
+     <addaction name="separator"/>
+     <addaction name="actionSortLinesAsc"/>
+     <addaction name="actionSortLinesAscCaseInsensitive"/>
+     <addaction name="actionSortLinesbyLengthAsc"/>
+     <addaction name="separator"/>
+     <addaction name="actionSortLinesDesc"/>
+     <addaction name="actionSortLinesDescCaseInsensitive"/>
+     <addaction name="actionSortLinesbyLengthDesc"/>
     </widget>
     <widget class="QMenu" name="menuCommentUncomment">
      <property name="title">
@@ -901,6 +910,9 @@
    <property name="text">
     <string>Find &amp;Previous</string>
    </property>
+   <property name="shortcut">
+    <string>Shift+F3</string>
+   </property>
   </action>
   <action name="actionReplace">
    <property name="icon">
@@ -1482,6 +1494,41 @@
   <action name="actionRemoveConsecutiveDuplicateLines">
    <property name="text">
     <string>Remove Consecutive Duplicate Lines</string>
+   </property>
+  </action>
+  <action name="actionSortLinesAsc">
+   <property name="text">
+    <string>Sort Lines Ascending</string>
+   </property>
+  </action>
+  <action name="actionSortLinesDesc">
+   <property name="text">
+    <string>Sort Lines Descending</string>
+   </property>
+  </action>
+  <action name="actionSortLinesAscCaseInsensitive">
+   <property name="text">
+    <string>Sort Lines Ascending (Case-Insensitive)</string>
+   </property>
+  </action>
+  <action name="actionSortLinesDescCaseInsensitive">
+   <property name="text">
+    <string>Sort Lines Descending (Case-Insensitive)</string>
+   </property>
+  </action>
+  <action name="actionSortLinesbyLengthAsc">
+   <property name="text">
+    <string>Sort Lines by Length Ascending</string>
+   </property>
+  </action>
+  <action name="actionSortLinesbyLengthDesc">
+   <property name="text">
+    <string>Sort Lines by Length Descending</string>
+   </property>
+  </action>
+  <action name="actionReverseLineOrder">
+   <property name="text">
+    <string>Reverse Line Order</string>
    </property>
   </action>
  </widget>

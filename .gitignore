@@ -44,6 +44,10 @@ target_wrapper.*
 
 # QtCtreator CMake
 CMakeLists.txt.user*
+CMakeCache.
+cmake_install.cmake
+Makefile
+__cmake_systeminformation
 
 *.pyc
 
@@ -66,3 +70,9 @@ CLAUDE.md
 # Markdown files local-only (except README)
 *.md
 !README.md
+
+# ninja
+.ninja_deps
+.ninja_lock
+.ninja_log
+build.ninja

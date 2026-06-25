@@ -62,6 +62,7 @@ DockedEditor::DockedEditor(QWidget *parent) : QObject(parent)
     ads::CDockManager::setConfigFlag(ads::CDockManager::FocusHighlighting, true);
     ads::CDockManager::setConfigFlag(ads::CDockManager::EqualSplitOnInsertion, true);
     ads::CDockManager::setConfigFlag(ads::CDockManager::MiddleMouseButtonClosesTab, true);
+    ads::CDockManager::setConfigFlag(ads::CDockManager::DockAreaHasTabsMenuButton, false);
 
     dockManager = new ads::CDockManager(parent);
     dockManager->setStyleSheet("");
@@ -226,5 +227,31 @@ void DockedEditor::editorRenamed(ScintillaNext *editor)
     }
     else {
         dockWidget->tabWidget()->setToolTip(editor->getName());
+    }
+}
+
+void DockedEditor::splitToRight(ScintillaNext *editor)
+{
+    Q_ASSERT(editor != Q_NULLPTR);
+
+    ads::CDockWidget *newDockWidget = qobject_cast<ads::CDockWidget *>(editor->parentWidget());
+    if (newDockWidget) {
+        ads::CDockAreaWidget *currentArea = currentDockArea();
+        if (currentArea) {
+            dockManager->addDockWidget(ads::RightDockWidgetArea, newDockWidget, currentArea);
+        }
+    }
+}
+
+void DockedEditor::splitToBottom(ScintillaNext *editor)
+{
+    Q_ASSERT(editor != Q_NULLPTR);
+
+    ads::CDockWidget *newDockWidget = qobject_cast<ads::CDockWidget *>(editor->parentWidget());
+    if (newDockWidget) {
+        ads::CDockAreaWidget *currentArea = currentDockArea();
+        if (currentArea) {
+            dockManager->addDockWidget(ads::BottomDockWidgetArea, newDockWidget, currentArea);
+        }
     }
 }

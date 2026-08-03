@@ -165,13 +165,40 @@ int Finder::replaceAll(const QString &replaceText)
     while (editor->send(SCI_FINDTEXT, search_flags, reinterpret_cast<sptr_t>(&ttf)) != -1) {
         const int start = ttf.chrgText.cpMin;
         const int end = ttf.chrgText.cpMax;
+        const int documentLengthBeforeReplace = editor->length();
+        const bool zeroLengthMatch = start == end;
+        const bool zeroLengthMatchAtEnd = zeroLengthMatch && start >= documentLengthBeforeReplace;
 
         editor->setTargetRange(start, end);
 
+        int replacementLength;
         if (isRegex)
-            ttf.chrg.cpMin = start + editor->replaceTargetRE(replaceData.length(), replaceData.constData());
+            replacementLength = editor->replaceTargetRE(replaceData.length(), replaceData.constData());
         else
-            ttf.chrg.cpMin = start + editor->replaceTarget(replaceData.length(), replaceData.constData());
+            replacementLength = editor->replaceTarget(replaceData.length(), replaceData.constData());
+
+        if (replacementLength < 0) {
+            break;
+        }
+
+        ttf.chrg.cpMin = start + replacementLength;
+
+        if (zeroLengthMatch) {
+            // Do not search a newly-created end-of-document match again. For
+            // other empty matches, advance by one complete UTF-8 code point
+            // when the replacement itself did not move the cursor.
+            if (zeroLengthMatchAtEnd) {
+                break;
+            }
+
+            if (ttf.chrg.cpMin <= start) {
+                ttf.chrg.cpMin = editor->positionAfter(start);
+            }
+
+            if (ttf.chrg.cpMin <= start) {
+                break;
+            }
+        }
 
         // The replace could have changed the document size, so update the end of the search range
         ttf.chrg.cpMax = editor->length();

@@ -204,9 +204,35 @@ void ScintillaNext::forEachMatchInRange(const QByteArray &text, Func callback, S
     int flags = searchFlags();
 
     while (send(SCI_FINDTEXT, flags, reinterpret_cast<sptr_t>(&ttf)) != -1) {
-        if(ttf.chrgText.cpMin == ttf.chrgText.cpMax)
+        const Sci_PositionCR previousStart = ttf.chrg.cpMin;
+        const Sci_PositionCR matchStart = ttf.chrgText.cpMin;
+        const Sci_PositionCR matchEnd = ttf.chrgText.cpMax;
+        const Sci_PositionCR requestedStart = callback(matchStart, matchEnd);
+
+        if (requestedStart > previousStart) {
+            ttf.chrg.cpMin = requestedStart;
+        }
+        else if (matchStart == matchEnd) {
+            // A zero-length regular-expression match must still advance the
+            // search, otherwise callers that return the match end will loop.
+            if (matchStart >= range.cpMax) {
+                break;
+            }
+
+            const Sci_PositionCR nextPosition = positionAfter(matchStart);
+            if (nextPosition <= matchStart) {
+                break;
+            }
+            ttf.chrg.cpMin = nextPosition;
+        }
+        else {
+            // Keep a malformed callback from sending the search backwards.
+            ttf.chrg.cpMin = matchEnd;
+        }
+
+        if (ttf.chrg.cpMin > range.cpMax) {
             break;
-        ttf.chrg.cpMin = callback(ttf.chrgText.cpMin, ttf.chrgText.cpMax);
+        }
     }
 }
 

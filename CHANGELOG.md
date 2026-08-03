@@ -10,6 +10,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Ctrl+D expands the word under the caret before selecting the next instance, and Alt-click adds a caret without sacrificing Alt-drag rectangular selection.
 - Added: Ctrl+Shift+P opens a fuzzy command palette covering enabled menu actions.
 - Fixed: Recorded macros now persist edits and shortcuts immediately, reject duplicate names/shortcuts, and restore keyboard actions after restart.
+- Fixed: Regex search enumeration and Replace All now make progress through zero-length matches without repeating or hanging.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

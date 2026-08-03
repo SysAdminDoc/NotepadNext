@@ -6,6 +6,7 @@ All notable changes to NotepadNext will be documented in this file.
 
 - Fixed: Session recovery now commits unsaved buffers through an atomic, generation-based journal with a backward-compatible legacy loader.
 - Added: QtTest coverage for session journal round-tripping and buffer-path traversal protection.
+- Fixed: File loading now decodes UTF-8/16/32 BOMs and uchardet-detected legacy encodings before sending text to Scintilla, preserving the codec for atomic saves.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

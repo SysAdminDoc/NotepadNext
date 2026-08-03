@@ -111,7 +111,9 @@ public:
         None,
         Utf8,
         Utf16LE,
-        Utf16BE
+        Utf16BE,
+        Utf32LE,
+        Utf32BE
     };
 
     BomType bom() const { return bomType; }
@@ -162,6 +164,7 @@ private:
     QString name;
     BufferType bufferType = BufferType::New;
     BomType bomType = BomType::None;
+    QByteArray encodingName = QByteArrayLiteral("UTF-8");
     QFileInfo fileInfo;
     QDateTime modifiedTime;
     RangeAllocator indicatorResources;

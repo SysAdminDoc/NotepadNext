@@ -36,6 +36,7 @@ class RecentFilesListManager;
 class ScintillaNext;
 class SessionManager;
 class TranslationManager;
+class NppPluginManager;
 
 
 class NotepadNextApplication : public SingleApplication
@@ -88,6 +89,7 @@ private:
     ApplicationSettings *settings;
     SessionManager *sessionManager;
     TranslationManager *translationManager;
+    NppPluginManager *nppPluginManager = Q_NULLPTR;
 
     LuaState *luaState = Q_NULLPTR;
 

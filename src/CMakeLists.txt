@@ -33,6 +33,8 @@ qt_add_executable(NotepadNext
 	MacroStep.h
 	MacroStepTableModel.h
 	NotepadNextApplication.h
+	NppPluginInterface.h
+	NppPluginManager.h
 	NppImporter.h
 	QRegexSearch.h
 	RangeAllocator.h
@@ -83,6 +85,7 @@ qt_add_executable(NotepadNext
 	MacroStepTableModel.cpp
 	main.cpp
 	NotepadNextApplication.cpp
+	NppPluginManager.cpp
 	NppImporter.cpp
 	QRegexSearch.cpp
 	RangeAllocator.cpp

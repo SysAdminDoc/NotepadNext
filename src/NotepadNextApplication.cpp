@@ -27,6 +27,7 @@
 #include "SessionManager.h"
 #include "TranslationManager.h"
 #include "ApplicationSettings.h"
+#include "NppPluginManager.h"
 
 #include "LuaState.h"
 #include "lua.hpp"
@@ -217,6 +218,9 @@ bool NotepadNextApplication::init()
         qInfo("Opening folder as workspace: %s", qUtf8Printable(dir));
         window->setFolderAsWorkspacePath(dir);
     }
+
+    nppPluginManager = new NppPluginManager(window, editorManager, this);
+    nppPluginManager->load();
 
     window->show();
 

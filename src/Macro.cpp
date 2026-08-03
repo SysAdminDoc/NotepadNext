@@ -65,6 +65,10 @@ void Macro::replay(ScintillaNext *editor, int n) const
 {
     qInfo(Q_FUNC_INFO);
 
+    if (editor == Q_NULLPTR || n <= 0) {
+        return;
+    }
+
     editor->beginUndoAction();
 
     while (n > 0) {
@@ -81,6 +85,10 @@ void Macro::replay(ScintillaNext *editor, int n) const
 void Macro::replayTillEndOfFile(ScintillaNext *editor) const
 {
     qInfo(Q_FUNC_INFO);
+
+    if (editor == Q_NULLPTR || steps.isEmpty()) {
+        return;
+    }
 
     editor->beginUndoAction();
 

@@ -36,9 +36,13 @@ public:
     QVector<Macro *> &availableMacros() { return macros; };
 
     void replayCurrentMacro(ScintillaNext *editor);
-    void saveCurrentMacro(const QString &macroName);
+    bool saveCurrentMacro(const QString &macroName, const QKeySequence &shortcut = QKeySequence());
+    bool isMacroNameAvailable(const QString &macroName) const;
+    bool isMacroShortcutAvailable(const QKeySequence &shortcut) const;
     bool hasCurrentUnsavedMacro() const;
     Macro *getCurrentMacro() const { return currentMacro; }
+
+    void saveSettings() const;
 
 public slots:
     void startRecording(ScintillaNext *editor);
@@ -46,7 +50,6 @@ public slots:
 
 private slots:
     void loadSettings();
-    void saveSettings() const;
 
 signals:
     void recordingStarted();

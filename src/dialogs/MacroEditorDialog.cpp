@@ -20,6 +20,7 @@
 #include <QItemSelectionModel>
 #include <QMessageBox>
 #include <QModelIndex>
+#include <QSignalBlocker>
 
 #include "MacroEditorDialog.h"
 #include "ComboBoxDelegate.h"
@@ -46,6 +47,31 @@ MacroEditorDialog::MacroEditorDialog(QWidget *parent, MacroManager *mm) :
 
     connect(ui->editMacroName, &QLineEdit::textChanged, this, &MacroEditorDialog::macroNameChanged);
 
+    connect(ui->keyMacroShortcut, &QKeySequenceEdit::keySequenceChanged, this, [this](const QKeySequence &shortcut) {
+        const QModelIndex currentIndex = ui->listMacros->selectionModel()->currentIndex();
+        if (!currentIndex.isValid()) {
+            return;
+        }
+
+        Macro *macro = model->macro(currentIndex);
+        if (shortcut == macro->getShortcut()) {
+            return;
+        }
+
+        for (const Macro *other : macroManager->availableMacros()) {
+            if (other != macro && !shortcut.isEmpty() && other->getShortcut() == shortcut) {
+                QMessageBox::warning(this, tr("Macro Shortcut"),
+                                     tr("That shortcut is already assigned to another macro."));
+                const QSignalBlocker blocker(ui->keyMacroShortcut);
+                ui->keyMacroShortcut->setKeySequence(macro->getShortcut());
+                return;
+            }
+        }
+
+        macro->setShortcut(shortcut);
+        macroManager->saveSettings();
+    });
+
     connect(ui->btnInsertMacroStep, &QPushButton::clicked, this, &MacroEditorDialog::insertMacroStep);
     connect(ui->btnDeleteMacroStep, &QPushButton::clicked, this, &MacroEditorDialog::deleteMacroStep);
     connect(ui->btnMoveMacroStepUp, &QPushButton::clicked, this, &MacroEditorDialog::moveMacroStepUp);
@@ -62,6 +88,7 @@ MacroEditorDialog::MacroEditorDialog(QWidget *parent, MacroManager *mm) :
 
 MacroEditorDialog::~MacroEditorDialog()
 {
+    macroManager->saveSettings();
     delete ui;
 }
 
@@ -84,12 +111,17 @@ void MacroEditorDialog::rowChanged(const QModelIndex &current, const QModelIndex
         Macro *macro = model->macro(current);
 
         ui->editMacroName->setText(macro->getName());
+        ui->keyMacroShortcut->setKeySequence(macro->getShortcut());
 
         // Replace the existing model
         if (auto model = ui->tblMacroSteps->model()) {
             model->deleteLater();
         }
-        ui->tblMacroSteps->setModel(new MacroStepTableModel(macro, this));
+        auto *stepModel = new MacroStepTableModel(macro, this);
+        ui->tblMacroSteps->setModel(stepModel);
+        connect(stepModel, &QAbstractItemModel::dataChanged, this, [this]() {
+            macroManager->saveSettings();
+        });
 
         // Resize some stuff now that we have a new model
         ui->tblMacroSteps->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
@@ -113,7 +145,16 @@ void MacroEditorDialog::macroNameChanged(const QString &text)
 
     if (currentIndex.isValid()) {
         Macro *macro = model->macro(currentIndex);
+
+        for (const Macro *other : macroManager->availableMacros()) {
+            if (other != macro && QString::compare(other->getName(), text.trimmed(), Qt::CaseInsensitive) == 0) {
+                ui->editMacroName->setStyleSheet("QLineEdit{border: 2px solid red}");
+                return;
+            }
+        }
+
         macro->setName(text);
+        macroManager->saveSettings();
 
         // Since the macro was edited directly, need to notify the model this index changed
         emit model->dataChanged(currentIndex, currentIndex);
@@ -153,6 +194,8 @@ void MacroEditorDialog::copyCurrentMacro()
             newMacro->addMacroStep(step);
         }
 
+        macroManager->saveSettings();
+
         // Select the newly created macro
         ui->listMacros->setCurrentIndex(model->index(currentIndex.row() + 1));
     }
@@ -171,6 +214,8 @@ void MacroEditorDialog::insertMacroStep()
         ui->tblMacroSteps->setCurrentIndex(ui->tblMacroSteps->model()->index(0, 0));
     }
 
+    macroManager->saveSettings();
+
     // Resize things if needed
     ui->tblMacroSteps->resizeRowsToContents();
     ui->tblMacroSteps->resizeColumnToContents(0);
@@ -182,6 +227,7 @@ void MacroEditorDialog::deleteMacroStep()
 
     if (currentIndex.isValid()) {
         ui->tblMacroSteps->model()->removeRow(currentIndex.row());
+        macroManager->saveSettings();
     }
 }
 
@@ -192,6 +238,7 @@ void MacroEditorDialog::moveMacroStepUp()
     if (currentIndex.isValid() && currentIndex.row() != 0) {
         // This does not make sense to me, start at the previous index and move it to the next index, but it works
         ui->tblMacroSteps->model()->moveRow(QModelIndex(), currentIndex.row() - 1, QModelIndex(), currentIndex.row() + 1);
+        macroManager->saveSettings();
     }
 }
 
@@ -202,5 +249,6 @@ void MacroEditorDialog::moveMacroStepDown()
     if (currentIndex.isValid() && currentIndex.row() != ui->tblMacroSteps->model()->rowCount() - 1) {
         // This also does not make ense, start at the current index and skip two
         ui->tblMacroSteps->model()->moveRow(QModelIndex(), currentIndex.row(), QModelIndex(), currentIndex.row() + 2);
+        macroManager->saveSettings();
     }
 }

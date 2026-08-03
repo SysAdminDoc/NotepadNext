@@ -22,6 +22,8 @@
 
 #include "MacroStep.h"
 
+#include <QKeySequence>
+
 class Macro
 {
 public:
@@ -40,6 +42,9 @@ public:
     QString getName() const;
     void setName(const QString &value);
 
+    QKeySequence getShortcut() const { return shortcut; }
+    void setShortcut(const QKeySequence &value) { shortcut = value; }
+
     QVector<MacroStep> &getSteps() { return steps; }
 
     friend QDataStream &operator<<(QDataStream& stream, const Macro &Macro);
@@ -48,6 +53,7 @@ public:
 private:
     QVector<MacroStep> steps;
     QString name;
+    QKeySequence shortcut;
 };
 Q_DECLARE_METATYPE(Macro)
 Q_DECLARE_METATYPE(Macro*)

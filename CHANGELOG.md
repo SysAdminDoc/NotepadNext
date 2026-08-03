@@ -9,6 +9,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Fixed: File loading now decodes UTF-8/16/32 BOMs and uchardet-detected legacy encodings before sending text to Scintilla, preserving the codec for atomic saves.
 - Added: Ctrl+D expands the word under the caret before selecting the next instance, and Alt-click adds a caret without sacrificing Alt-drag rectangular selection.
 - Added: Ctrl+Shift+P opens a fuzzy command palette covering enabled menu actions.
+- Fixed: Recorded macros now persist edits and shortcuts immediately, reject duplicate names/shortcuts, and restore keyboard actions after restart.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

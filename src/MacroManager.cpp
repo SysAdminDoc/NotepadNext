@@ -37,13 +37,31 @@ MacroManager::MacroManager(QObject *parent) :
 
 MacroManager::~MacroManager()
 {
+    if (_isRecording) {
+        delete recorder.stopRecording();
+        _isRecording = false;
+    }
+
     saveSettings();
+
+    if (currentMacro != Q_NULLPTR && !macros.contains(currentMacro)) {
+        delete currentMacro;
+    }
+    qDeleteAll(macros);
+}
+
+bool MacroManager::isRecording() const
+{
+    return _isRecording;
 }
 
 void MacroManager::startRecording(ScintillaNext *editor)
 {
     qInfo(Q_FUNC_INFO);
-    Q_ASSERT(_isRecording == false);
+    if (_isRecording || editor == Q_NULLPTR) {
+        qWarning("MacroManager: recording is already active or has no editor");
+        return;
+    }
 
     _isRecording = true;
 
@@ -55,13 +73,16 @@ void MacroManager::startRecording(ScintillaNext *editor)
 void MacroManager::stopRecording()
 {
     qInfo(Q_FUNC_INFO);
-    Q_ASSERT(_isRecording == true);
+    if (!_isRecording) {
+        qWarning("MacroManager: ignoring stop without an active recording");
+        return;
+    }
 
     _isRecording = false;
 
     Macro *m = recorder.stopRecording();
 
-    if (m->size() == 0) {
+    if (m == Q_NULLPTR || m->size() == 0) {
         // If there were no actions recorded, delete it
         delete m;
     }
@@ -90,6 +111,7 @@ void MacroManager::loadSettings()
 
         if (settings.value("Macro").canConvert<Macro>()) {
             Macro *m = new Macro(settings.value("Macro").value<Macro>());
+            m->setShortcut(QKeySequence(settings.value("Shortcut").toString()));
             macros.append(m);
         }
         else {
@@ -112,8 +134,14 @@ void MacroManager::saveSettings() const
         for (int i = 0; i < macros.size(); ++i) {
             settings.setArrayIndex(i);
             settings.setValue("Macro", QVariant::fromValue(*macros.at(i)));
+            settings.setValue("Shortcut", macros.at(i)->getShortcut().toString());
         }
         settings.endArray();
+    }
+
+    settings.sync();
+    if (settings.status() != QSettings::NoError) {
+        qWarning("MacroManager: failed to persist macros (%d)", settings.status());
     }
 }
 
@@ -121,17 +149,62 @@ void MacroManager::replayCurrentMacro(ScintillaNext *editor)
 {
     qInfo(Q_FUNC_INFO);
 
+    if (currentMacro == Q_NULLPTR || editor == Q_NULLPTR) {
+        qWarning("MacroManager: no current macro or editor to replay");
+        return;
+    }
+
     currentMacro->replay(editor);
 }
 
-void MacroManager::saveCurrentMacro(const QString &macroName)
+bool MacroManager::saveCurrentMacro(const QString &macroName, const QKeySequence &shortcut)
 {
     qInfo(Q_FUNC_INFO);
 
+    const QString name = macroName.trimmed();
+    if (currentMacro == Q_NULLPTR || isCurrentMacroSaved || name.isEmpty()
+            || !isMacroNameAvailable(name) || !isMacroShortcutAvailable(shortcut)) {
+        return false;
+    }
+
     isCurrentMacroSaved = true;
 
-    currentMacro->setName(macroName);
+    currentMacro->setName(name);
+    currentMacro->setShortcut(shortcut);
     macros.append(currentMacro);
+    saveSettings();
+    return true;
+}
+
+bool MacroManager::isMacroNameAvailable(const QString &macroName) const
+{
+    const QString name = macroName.trimmed();
+    if (name.isEmpty()) {
+        return false;
+    }
+
+    for (const Macro *macro : macros) {
+        if (macro != Q_NULLPTR && QString::compare(macro->getName(), name, Qt::CaseInsensitive) == 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool MacroManager::isMacroShortcutAvailable(const QKeySequence &shortcut) const
+{
+    if (shortcut.isEmpty()) {
+        return true;
+    }
+
+    for (const Macro *macro : macros) {
+        if (macro != Q_NULLPTR && macro->getShortcut() == shortcut) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool MacroManager::hasCurrentUnsavedMacro() const

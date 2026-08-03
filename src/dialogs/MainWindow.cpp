@@ -830,19 +830,13 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         macroSaveDialog.activateWindow();
 
         if (macroSaveDialog.exec() == QDialog::Accepted) {
-            // We have at least 1 saved macro at this point
-            ui->actionEditMacros->setEnabled(true);
-
-            // The macro has been saved so disable save option
-            ui->actionSaveCurrentRecordedMacro->setEnabled(false);
-
-            // TODO: does the macro name already exist? Make the user retry
-
-            macroManager.saveCurrentMacro(macroSaveDialog.getName());
-
-            // TODO handle shortcuts
-            if (!macroSaveDialog.getShortcut().isEmpty()) {
-                // do something with msd.getShortcut().isEmpty()
+            if (!macroManager.saveCurrentMacro(macroSaveDialog.getName(), macroSaveDialog.getShortcut())) {
+                QMessageBox::warning(this, tr("Save Macro"),
+                                     tr("A macro with that name or shortcut already exists."));
+            }
+            else {
+                ui->actionEditMacros->setEnabled(true);
+                ui->actionSaveCurrentRecordedMacro->setEnabled(false);
             }
         }
     });
@@ -866,7 +860,22 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         macroRunDialog->activateWindow();
     });
 
-    connect(ui->actionEditMacros, &QAction::triggered, this, [this]() {
+    auto rebuildMacroMenu = [this]() {
+        // NOTE: its unfortunate that this has to be hard coded, but there's no way
+        // to easily determine what should or shouldn't be there
+        while (ui->menuMacro->actions().size() > 6) {
+            delete ui->menuMacro->actions().takeLast();
+        }
+
+        for (const Macro *m : macroManager.availableMacros()) {
+            QAction *action = ui->menuMacro->addAction(m->getName(), [=, this]() { m->replay(currentEditor()); });
+            action->setShortcut(m->getShortcut());
+            action->setShortcutContext(Qt::WindowShortcut);
+            addAction(action);
+        }
+    };
+
+    connect(ui->actionEditMacros, &QAction::triggered, this, [this, rebuildMacroMenu]() {
         MacroEditorDialog med(this, &macroManager);
 
         med.show();
@@ -876,19 +885,11 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         med.exec();
 
         ui->actionEditMacros->setEnabled(macroManager.availableMacros().size() > 0);
+        rebuildMacroMenu();
     });
 
-    connect(ui->menuMacro, &QMenu::aboutToShow, this, [this]() {
-        // NOTE: its unfortunate that this has to be hard coded, but there's no way
-        // to easily determine what should or shouldn't be there
-        while (ui->menuMacro->actions().size() > 6) {
-            delete ui->menuMacro->actions().takeLast();
-        }
-
-        for (const Macro *m : macroManager.availableMacros()) {
-            ui->menuMacro->addAction(m->getName(), [=, this]() { m->replay(currentEditor()); });
-        }
-    });
+    connect(ui->menuMacro, &QMenu::aboutToShow, this, rebuildMacroMenu);
+    rebuildMacroMenu();
 
     ui->actionAboutQt->setIcon(QPixmap(QLatin1String(":/qt-project.org/qmessagebox/images/qtlogo-64.png")));
     connect(ui->actionAboutQt, &QAction::triggered, &QApplication::aboutQt);

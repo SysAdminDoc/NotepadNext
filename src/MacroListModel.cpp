@@ -49,6 +49,10 @@ bool MacroListModel::removeRows(int row, int count, const QModelIndex &parent)
 {
     Q_UNUSED(parent);
 
+    if (row < 0 || count < 1 || row + count > rowCount()) {
+        return false;
+    }
+
     beginRemoveRows(QModelIndex(), row, row + count - 1);
 
     while (count--) {
@@ -56,6 +60,8 @@ bool MacroListModel::removeRows(int row, int count, const QModelIndex &parent)
     }
 
     endRemoveRows();
+
+    macroManager->saveSettings();
 
     return true;
 }
@@ -72,6 +78,8 @@ bool MacroListModel::insertRows(int row, int count, const QModelIndex &parent)
     }
 
     endInsertRows();
+
+    macroManager->saveSettings();
 
     return true;
 }

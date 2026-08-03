@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(NotepadNext
     VERSION 0.14
     DESCRIPTION "Cross-platform text editor"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 include(CTest)
@@ -15,6 +15,8 @@ set(APP_COPYRIGHT "Copyright 2019-${CURRENT_YEAR} Justin Dailey")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(NOTEPADNEXT_ENABLE_TREE_SITTER "Build the optional Tree-sitter JSON lexer" ON)
 
 add_compile_definitions(SCI_OWNREGEX)
 

@@ -66,6 +66,8 @@ Current development is done using QtCreator with the Microsoft Visual C++ (msvc)
 
 If you are familiar with building C++ Qt desktop applications with Qt Creator, then this should be as simple as opening `CMakeLists` and build/run the project.
 
+The build includes the optional Tree-sitter JSON lexer by default. Disable it with `-DNOTEPADNEXT_ENABLE_TREE_SITTER=OFF` when a minimal build without the parser dependency is preferred.
+
 If you are new to building C++ Qt desktop applications, there is a more detailed guide [here](/doc/Building.md).
 
 

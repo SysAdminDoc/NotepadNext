@@ -19,6 +19,8 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Windows builds now discover Unicode Notepad++ DLL plugins, expose their menu commands, forward Scintilla notifications, and bridge common NPPM path, document, save, and query messages.
 - Fixed: Regex search now honors Scintilla's explicit pattern-length contract, clears stale match lengths on failure, and expands Boost/Notepad++-style numbered, named, whole-match, and escaped replacement references.
 - Added: Headless regex coverage for explicit pattern lengths, invalid patterns, named and numbered replacement references, and replacement escapes.
+- Added: An optional Tree-sitter JSON lexer with parser-backed token styles, pinned MIT runtime/grammar dependencies, and a `NOTEPADNEXT_ENABLE_TREE_SITTER=OFF` minimal-build switch.
+- Added: Headless Tree-sitter parser and lexer-style coverage, including a build verification with the feature disabled.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

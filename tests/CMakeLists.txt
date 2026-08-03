@@ -74,3 +74,25 @@ target_link_libraries(NotepadNextLanguageDefinitionTests
 )
 
 add_test(NAME NotepadNextLanguageDefinitionTests COMMAND NotepadNextLanguageDefinitionTests)
+
+if(NOTEPADNEXT_ENABLE_TREE_SITTER)
+    qt_add_executable(NotepadNextTreeSitterTests
+        TreeSitterJsonTests.cpp
+        ${CMAKE_SOURCE_DIR}/src/TreeSitterJsonLexer.cpp
+    )
+
+    target_include_directories(NotepadNextTreeSitterTests
+        PRIVATE
+            ${CMAKE_SOURCE_DIR}/src
+            ${CMAKE_SOURCE_DIR}/thirdparty/scintilla/include
+    )
+
+    target_link_libraries(NotepadNextTreeSitterTests
+        PRIVATE
+            Qt6::Core
+            Qt6::Test
+            tree-sitter-json
+    )
+
+    add_test(NAME NotepadNextTreeSitterTests COMMAND NotepadNextTreeSitterTests)
+endif()

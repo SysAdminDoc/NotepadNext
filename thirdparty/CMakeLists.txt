@@ -36,3 +36,28 @@ add_subdirectory(lexilla)
 add_subdirectory(uchardet)
 
 target_link_libraries(lexilla PRIVATE scintilla)
+
+if(NOTEPADNEXT_ENABLE_TREE_SITTER)
+    CPMAddPackage(
+        NAME tree_sitter
+        GITHUB_REPOSITORY tree-sitter/tree-sitter
+        GIT_TAG v0.26.9
+        OPTIONS
+            "BUILD_SHARED_LIBS OFF"
+            "TREE_SITTER_FEATURE_WASM OFF"
+            "AMALGAMATED ON"
+    )
+
+    CPMAddPackage(
+        NAME tree_sitter_json
+        GITHUB_REPOSITORY tree-sitter/tree-sitter-json
+        GIT_TAG v0.24.8
+        DOWNLOAD_ONLY YES
+    )
+
+    add_library(tree-sitter-json STATIC
+        ${tree_sitter_json_SOURCE_DIR}/src/parser.c
+    )
+    set_target_properties(tree-sitter-json PROPERTIES C_STANDARD 11)
+    target_link_libraries(tree-sitter-json PUBLIC tree-sitter)
+endif()

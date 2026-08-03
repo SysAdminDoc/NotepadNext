@@ -32,6 +32,9 @@
 #include "LuaState.h"
 #include "lua.hpp"
 #include "EditorConfigAppDecorator.h"
+#ifdef NOTEPADNEXT_WITH_TREE_SITTER
+#include "TreeSitterJsonLexer.h"
+#endif
 
 #include "ILexer.h"
 #include "Lexilla.h"
@@ -283,8 +286,17 @@ void NotepadNextApplication::setEditorLanguage(ScintillaNext *editor, const QStr
     editor->languageName = languageName;
     editor->languageSingleLineComment = getLuaState()->executeAndReturn<QString>("return languages[languageName].singleLineComment or \"\"").toUtf8();
 
+#ifdef NOTEPADNEXT_WITH_TREE_SITTER
+    if (languageName == QStringLiteral("JSON")) {
+        editor->setILexer(reinterpret_cast<sptr_t>(new TreeSitterJsonLexer()));
+    } else {
+        auto lexerInstance = CreateLexer(lexer.toLatin1().constData());
+        editor->setILexer(reinterpret_cast<sptr_t>(lexerInstance));
+    }
+#else
     auto lexerInstance = CreateLexer(lexer.toLatin1().constData());
-    editor->setILexer((sptr_t) lexerInstance);
+    editor->setILexer(reinterpret_cast<sptr_t>(lexerInstance));
+#endif
     editor->clearDocumentStyle(); // Remove all previous style information, setting the lexer does not guarantee styling information is cleared
 
     // Not ideal this has to be manually emitted but it works since setILexer() is not widely used

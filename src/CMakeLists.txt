@@ -258,3 +258,12 @@ target_compile_definitions(NotepadNext
         APP_COPYRIGHT="${APP_COPYRIGHT}"
         APP_DISTRIBUTION="${APP_DISTRIBUTION}"
 )
+
+if(NOTEPADNEXT_ENABLE_TREE_SITTER)
+    target_sources(NotepadNext PRIVATE
+        TreeSitterJsonLexer.h
+        TreeSitterJsonLexer.cpp
+    )
+    target_compile_definitions(NotepadNext PRIVATE NOTEPADNEXT_WITH_TREE_SITTER)
+    target_link_libraries(NotepadNext PRIVATE tree-sitter-json)
+endif()

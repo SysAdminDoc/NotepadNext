@@ -24,6 +24,143 @@
 
 using namespace Scintilla;
 
+namespace
+{
+QString expandReplacement(const QRegularExpressionMatch &match, const QString &replacement)
+{
+    QString expanded;
+    expanded.reserve(replacement.size());
+
+    const int captureCount = match.regularExpression().captureCount();
+    const auto appendCapture = [&expanded, &match](int index) {
+        if (index >= 0) {
+            expanded += match.captured(index);
+        }
+    };
+
+    for (qsizetype index = 0; index < replacement.size();) {
+        const QChar character = replacement.at(index);
+        if (character == QLatin1Char('$')) {
+            if (index + 1 >= replacement.size()) {
+                expanded += character;
+                ++index;
+                continue;
+            }
+
+            const QChar next = replacement.at(index + 1);
+            if (next == QLatin1Char('$')) {
+                expanded += QLatin1Char('$');
+                index += 2;
+                continue;
+            }
+            if (next == QLatin1Char('&')) {
+                appendCapture(0);
+                index += 2;
+                continue;
+            }
+            if (replacement.mid(index, 6) == QStringLiteral("$MATCH")) {
+                appendCapture(0);
+                index += 6;
+                continue;
+            }
+
+            if (next == QLatin1Char('{')) {
+                const qsizetype close = replacement.indexOf(QLatin1Char('}'), index + 2);
+                if (close != -1) {
+                    const QString reference = replacement.mid(index + 2, close - index - 2);
+                    bool numeric = false;
+                    const int capture = reference.toInt(&numeric);
+                    if (numeric) {
+                        appendCapture(capture);
+                    } else {
+                        expanded += match.captured(reference);
+                    }
+                    index = close + 1;
+                    continue;
+                }
+            }
+
+            if (next.isDigit()) {
+                qsizetype end = index + 1;
+                while (end < replacement.size() && replacement.at(end).isDigit()) {
+                    ++end;
+                }
+
+                const QString digits = replacement.mid(index + 1, end - index - 1);
+                int selectedCapture = -1;
+                qsizetype selectedDigits = 0;
+                for (qsizetype count = digits.size(); count > 0; --count) {
+                    bool numeric = false;
+                    const int candidate = digits.left(count).toInt(&numeric);
+                    if (numeric && (candidate == 0 || candidate <= captureCount)) {
+                        selectedCapture = candidate;
+                        selectedDigits = count;
+                        break;
+                    }
+                }
+
+                if (selectedCapture >= 0) {
+                    appendCapture(selectedCapture);
+                    index += 1 + selectedDigits;
+                    continue;
+                }
+            }
+
+            expanded += character;
+            ++index;
+            continue;
+        }
+
+        if (character == QLatin1Char('\\') && index + 1 < replacement.size()) {
+            const QChar next = replacement.at(index + 1);
+            if (next.isDigit()) {
+                qsizetype end = index + 1;
+                while (end < replacement.size() && replacement.at(end).isDigit()) {
+                    ++end;
+                }
+
+                bool numeric = false;
+                const int capture = replacement.mid(index + 1, end - index - 1).toInt(&numeric);
+                if (numeric) {
+                    appendCapture(capture);
+                    index = end;
+                    continue;
+                }
+            }
+
+            const QChar escaped = replacement.at(index + 1);
+            if (escaped == QLatin1Char('a')) {
+                expanded += QChar(0x0007);
+            } else if (escaped == QLatin1Char('b')) {
+                expanded += QChar(0x0008);
+            } else if (escaped == QLatin1Char('f')) {
+                expanded += QChar(0x000C);
+            } else if (escaped == QLatin1Char('n')) {
+                expanded += QLatin1Char('\n');
+            } else if (escaped == QLatin1Char('r')) {
+                expanded += QLatin1Char('\r');
+            } else if (escaped == QLatin1Char('t')) {
+                expanded += QLatin1Char('\t');
+            } else if (escaped == QLatin1Char('v')) {
+                expanded += QChar(0x000B);
+            } else if (escaped == QLatin1Char('\\')) {
+                expanded += QLatin1Char('\\');
+            } else {
+                expanded += character;
+                expanded += escaped;
+            }
+            index += 2;
+            continue;
+        }
+
+        expanded += character;
+        ++index;
+    }
+
+    return expanded;
+}
+}
+
 #ifdef SCI_OWNREGEX
 RegexSearchBase *Scintilla::Internal::CreateRegexSearch(CharClassify *charClassTable)
 {
@@ -53,9 +190,15 @@ Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::P
     // when you start using characters that are >1 byte a piece. Meaning position 3 (3 bytes into a file) could be 1 character.
     // -----------------------------------------------------------------------------------------------------------------------
 
-    if (doc == Q_NULLPTR || length == Q_NULLPTR || s == Q_NULLPTR) {
+    if (length == Q_NULLPTR) {
         return -1;
     }
+    if (doc == Q_NULLPTR || s == Q_NULLPTR || *length <= 0) {
+        *length = 0;
+        return -1;
+    }
+
+    const Sci::Position patternLength = *length;
 
     const bool forward = minPos <= maxPos;
     Sci::Position rangeStart = forward ? minPos : maxPos;
@@ -67,6 +210,7 @@ Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::P
     rangeEnd = doc->MovePositionOutsideChar(rangeEnd, -1, false);
 
     if (rangeStart > rangeEnd) {
+        *length = 0;
         return -1;
     }
 
@@ -83,9 +227,12 @@ Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::P
         options |= QRegularExpression::DotMatchesEverythingOption;
 
     // TODO: does (*ANYCRLF) need prepended to the search string?
-    QRegularExpression re(s, options);
-    if (!re.isValid())
+    const QByteArray pattern(s, static_cast<qsizetype>(patternLength));
+    QRegularExpression re(QString::fromUtf8(pattern), options);
+    if (!re.isValid()) {
+        *length = 0;
         return -1; // Invalid regular expression
+    }
 
     // Get the bytes from the document. Scintilla positions are UTF-8 bytes;
     // QRegularExpression offsets are UTF-16 code units.
@@ -131,6 +278,7 @@ Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::P
     }
 
     if (!selectedMatch.hasMatch()) {
+        *length = 0;
         return -1;
     }
 
@@ -143,16 +291,16 @@ const char *QRegexSearch::SubstituteByPosition(Document *doc, const char *text, 
 {
     Q_UNUSED(doc);
 
-    qInfo(Q_FUNC_INFO);
+    if (length == Q_NULLPTR || text == Q_NULLPTR || !match.isValid() || !match.hasMatch()) {
+        if (length) {
+            *length = 0;
+        }
+        return Q_NULLPTR;
+    }
 
-    Q_ASSERT(match.isValid());
-    Q_ASSERT(match.hasMatch());
+    const QString replacement = QString::fromUtf8(text, static_cast<qsizetype>(*length));
+    const QString newString = expandReplacement(match, replacement);
 
-    // Get the captured text and replace the match
-    QString newString = match.captured();
-    newString.replace(match.regularExpression(), QByteArray(text, *length));
-
-    // TODO: figure out why this has to be new'd and can't be an instantiated class member
     if (substituted) {
         delete substituted;
     }

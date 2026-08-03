@@ -17,6 +17,8 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Modern language profiles for Nim, Zig, TOML, Svelte, MDX, HCL, and Terraform, backed by the vendored Lexilla lexers and structural fallbacks where no native lexer is available.
 - Added: Headless coverage that loads modern language definitions and verifies each configured lexer factory.
 - Added: Windows builds now discover Unicode Notepad++ DLL plugins, expose their menu commands, forward Scintilla notifications, and bridge common NPPM path, document, save, and query messages.
+- Fixed: Regex search now honors Scintilla's explicit pattern-length contract, clears stale match lengths on failure, and expands Boost/Notepad++-style numbered, named, whole-match, and escaped replacement references.
+- Added: Headless regex coverage for explicit pattern lengths, invalid patterns, named and numbered replacement references, and replacement escapes.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

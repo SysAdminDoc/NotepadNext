@@ -22,7 +22,10 @@ class QRegexSearchTests final : public QObject
 private slots:
     void forwardSearchHonorsWordBoundaries();
     void backwardSearchReturnsLastMatch();
+    void caseSensitivityUsesDocumentContract();
     void dotMatchesNewlineFlagIsHonored();
+    void posixCharacterClassesRemainSupported();
+    void utf8PositionsRemainScintillaByteOffsets();
     void replacementExpandsCaptureGroups();
 };
 
@@ -62,6 +65,20 @@ void QRegexSearchTests::backwardSearchReturnsLastMatch()
     QCOMPARE(length, Sci::Position(3));
 }
 
+void QRegexSearchTests::caseSensitivityUsesDocumentContract()
+{
+    Document document(DocumentOption::Default);
+    setDocumentText(document, "Foo foo");
+    QRegexSearch search;
+    Sci::Position length = 3;
+
+    QCOMPARE(search.FindText(&document, 0, document.Length(), "foo", true, false, false,
+                             FindOption::RegExp, &length), Sci::Position(4));
+
+    QCOMPARE(search.FindText(&document, 0, document.Length(), "foo", false, false, false,
+                             FindOption::RegExp, &length), Sci::Position(0));
+}
+
 void QRegexSearchTests::dotMatchesNewlineFlagIsHonored()
 {
     Document document(DocumentOption::Default);
@@ -77,6 +94,37 @@ void QRegexSearchTests::dotMatchesNewlineFlagIsHonored()
                                                     FindOption::RegExp | FindOption::Cxx11RegEx,
                                                     &length);
     QCOMPARE(position, Sci::Position(0));
+    QCOMPARE(length, Sci::Position(3));
+}
+
+void QRegexSearchTests::posixCharacterClassesRemainSupported()
+{
+    Document document(DocumentOption::Default);
+    setDocumentText(document, "id=42");
+    QRegexSearch search;
+    Sci::Position length = 1;
+
+    const Sci::Position position = search.FindText(&document, 0, document.Length(),
+                                                    "[[:digit:]]+", true, false, false,
+                                                    FindOption::RegExp | FindOption::Posix,
+                                                    &length);
+
+    QCOMPARE(position, Sci::Position(3));
+    QCOMPARE(length, Sci::Position(2));
+}
+
+void QRegexSearchTests::utf8PositionsRemainScintillaByteOffsets()
+{
+    Document document(DocumentOption::Default);
+    setDocumentText(document, "\xC3\xA9 foo");
+    QRegexSearch search;
+    Sci::Position length = 3;
+
+    const Sci::Position position = search.FindText(&document, 0, document.Length(), "foo",
+                                                    true, false, false, FindOption::RegExp,
+                                                    &length);
+
+    QCOMPARE(position, Sci::Position(3));
     QCOMPARE(length, Sci::Position(3));
 }
 

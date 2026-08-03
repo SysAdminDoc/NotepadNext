@@ -73,7 +73,10 @@ Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::P
     auto options = QRegularExpression::MultilineOption
             | QRegularExpression::UseUnicodePropertiesOption;
 
-    if (!FlagSet(flags, FindOption::MatchCase))
+    // Document::FindText passes the decoded search options as explicit
+    // arguments. Keep the adapter aligned with that contract rather than
+    // deriving case sensitivity a second time from the flag bitset.
+    if (!caseSensitive)
         options |= QRegularExpression::CaseInsensitiveOption;
 
     if (FlagSet(flags, FindOption::Cxx11RegEx))

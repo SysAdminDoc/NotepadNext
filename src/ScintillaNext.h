@@ -26,6 +26,7 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
+#include <QPoint>
 
 
 
@@ -157,6 +158,9 @@ signals:
     void reloaded();
 
 protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
 
@@ -170,6 +174,10 @@ private:
     RangeAllocator indicatorResources;
 
     bool temporary = false; // Temporary file loaded from a session. It can either be a 'New' file or actual 'File'
+
+    bool altClickPending = false;
+    bool altClickDragging = false;
+    QPoint altClickStart;
 
     bool readFromDisk(QFile &file);
     QDateTime fileTimestamp();

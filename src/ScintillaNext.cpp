@@ -26,6 +26,7 @@
 #include <cinttypes>
 
 #include <QDir>
+#include <QApplication>
 #include <QMouseEvent>
 #include <QSaveFile>
 #include <QTextCodec>
@@ -179,6 +180,70 @@ ScintillaNext::ScintillaNext(QString name, QWidget *parent) :
 
 ScintillaNext::~ScintillaNext()
 {
+}
+
+void ScintillaNext::mousePressEvent(QMouseEvent *event)
+{
+    const bool altOnly = (event->modifiers() & Qt::AltModifier) &&
+                         !(event->modifiers() & Qt::ControlModifier);
+    if (event->button() == Qt::LeftButton && altOnly) {
+        altClickPending = true;
+        altClickDragging = false;
+        altClickStart = event->position().toPoint();
+        return;
+    }
+
+    ScintillaEdit::mousePressEvent(event);
+}
+
+void ScintillaNext::mouseMoveEvent(QMouseEvent *event)
+{
+    if (altClickPending && (event->buttons() & Qt::LeftButton)) {
+        const QPoint currentPosition = event->position().toPoint();
+        const int distance = (currentPosition - altClickStart).manhattanLength();
+        if (distance >= QApplication::startDragDistance()) {
+            QMouseEvent pressEvent(QEvent::MouseButtonPress,
+                                   QPointF(altClickStart),
+                                   Qt::LeftButton,
+                                   Qt::LeftButton,
+                                   event->modifiers());
+            altClickPending = false;
+            altClickDragging = true;
+            ScintillaEdit::mousePressEvent(&pressEvent);
+            ScintillaEdit::mouseMoveEvent(event);
+            return;
+        }
+    }
+
+    if (altClickDragging) {
+        ScintillaEdit::mouseMoveEvent(event);
+        return;
+    }
+
+    if (!altClickPending) {
+        ScintillaEdit::mouseMoveEvent(event);
+    }
+}
+
+void ScintillaNext::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (altClickPending && event->button() == Qt::LeftButton) {
+        const int position = static_cast<int>(positionFromPoint(altClickStart.x(), altClickStart.y()));
+        if (position >= 0) {
+            addSelection(position, position);
+            setFocus(Qt::MouseFocusReason);
+        }
+        altClickPending = false;
+        return;
+    }
+
+    if (altClickDragging && event->button() == Qt::LeftButton) {
+        altClickDragging = false;
+        ScintillaEdit::mouseReleaseEvent(event);
+        return;
+    }
+
+    ScintillaEdit::mouseReleaseEvent(event);
 }
 
 ScintillaNext *ScintillaNext::fromFile(const QString &filePath, bool tryToCreate)

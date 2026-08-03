@@ -342,6 +342,15 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(ui->actionSelectNext, &QAction::triggered, this, [this]() {
         ScintillaNext *editor = currentEditor();
 
+        if (editor->selectionEmpty()) {
+            const int caret = editor->currentPos();
+            const int start = editor->wordStartPosition(caret, true);
+            const int end = editor->wordEndPosition(caret, true);
+            if (start != end) {
+                editor->setSelection(end, start);
+            }
+        }
+
         editor->setSearchFlags(SCFIND_NONE);
         editor->targetWholeDocument();
         editor->multipleSelectAddNext();

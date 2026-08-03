@@ -676,6 +676,8 @@ int FindReplaceDialog::computeSearchFlags()
         flags |= SCFIND_MATCHCASE;
     if (ui->radioRegexSearch->isChecked())
         flags |= SCFIND_REGEXP;
+    if (ui->checkBoxRegexMatchesNewline->isChecked())
+        flags |= SCFIND_CXX11REGEX;
 
     return flags;
 }

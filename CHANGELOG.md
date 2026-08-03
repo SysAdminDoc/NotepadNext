@@ -11,6 +11,8 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Ctrl+Shift+P opens a fuzzy command palette covering enabled menu actions.
 - Fixed: Recorded macros now persist edits and shortcuts immediately, reject duplicate names/shortcuts, and restore keyboard actions after restart.
 - Fixed: Regex search enumeration and Replace All now make progress through zero-length matches without repeating or hanging.
+- Fixed: Regex searches now honor backward ranges, whole-word/word-start boundaries, newline-aware dot matching, and release replacement buffers correctly.
+- Added: Headless document-level regex regression coverage for direction, boundaries, newline mode, and capture replacement.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

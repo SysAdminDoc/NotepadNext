@@ -40,67 +40,100 @@ QRegexSearch::QRegexSearch()
 
 }
 
+QRegexSearch::~QRegexSearch()
+{
+    delete substituted;
+}
+
 Sci::Position QRegexSearch::FindText(Document *doc, Sci::Position minPos, Sci::Position maxPos, const char *s, bool caseSensitive, bool word, bool wordStart, Scintilla::FindOption flags, Sci::Position *length)
 {
-    Q_UNUSED(caseSensitive);
-    Q_UNUSED(word)
-    Q_UNUSED(wordStart)
     // -----------------------------------------------------------------------------------------------------------------------
     // NOTE: This section of code has to be very careful about what units of measure is being used. Scintilla wants to operate
     // in units of bytes (e.g. position 3 is 3 bytes into the text). Qt wants to operate in units of UTF16 chars. The trouble is
     // when you start using characters that are >1 byte a piece. Meaning position 3 (3 bytes into a file) could be 1 character.
     // -----------------------------------------------------------------------------------------------------------------------
 
-    // Make sure the positiosn are outside of characters
-    minPos = doc->MovePositionOutsideChar(minPos, 1, false);
-    maxPos = doc->MovePositionOutsideChar(maxPos, -1, false);
-
-    //qInfo(Q_FUNC_INFO);
-    //qInfo("\tminPos %d", minPos);
-    //qInfo("\tmaxPos %d", maxPos);
-    //qInfo("\ts %s", s);
-    //qInfo("\tcaseSensitive %s", caseSensitive ? "true" : "false");
-    //qInfo("\tword %s", word ? "true" : "false");
-    //qInfo("\twordStart %s", wordStart ? "true" : "false");
-    //qInfo("\tflags %d", flags);
-
-    // No need to search an empty range
-    if (minPos == maxPos)
+    if (doc == Q_NULLPTR || length == Q_NULLPTR || s == Q_NULLPTR) {
         return -1;
+    }
 
-    auto options = QRegularExpression::MultilineOption | QRegularExpression::UseUnicodePropertiesOption;
+    const bool forward = minPos <= maxPos;
+    Sci::Position rangeStart = forward ? minPos : maxPos;
+    Sci::Position rangeEnd = forward ? maxPos : minPos;
+
+    rangeStart = qBound<Sci::Position>(0, rangeStart, doc->Length());
+    rangeEnd = qBound<Sci::Position>(0, rangeEnd, doc->Length());
+    rangeStart = doc->MovePositionOutsideChar(rangeStart, 1, false);
+    rangeEnd = doc->MovePositionOutsideChar(rangeEnd, -1, false);
+
+    if (rangeStart > rangeEnd) {
+        return -1;
+    }
+
+    auto options = QRegularExpression::MultilineOption
+            | QRegularExpression::UseUnicodePropertiesOption;
 
     if (!FlagSet(flags, FindOption::MatchCase))
         options |= QRegularExpression::CaseInsensitiveOption;
+
+    if (FlagSet(flags, FindOption::Cxx11RegEx))
+        options |= QRegularExpression::DotMatchesEverythingOption;
 
     // TODO: does (*ANYCRLF) need prepended to the search string?
     QRegularExpression re(s, options);
     if (!re.isValid())
         return -1; // Invalid regular expression
 
-    // Get the bytes from the document. No need to go past maxPos bytes
-    // Not actually sure if this copies the data or not
-    const Sci::Position rangeLength = maxPos - minPos;
-    const QString utf8 = QString::fromUtf8(doc->RangePointer(minPos, rangeLength), rangeLength);
+    // Get the bytes from the document. Scintilla positions are UTF-8 bytes;
+    // QRegularExpression offsets are UTF-16 code units.
+    const Sci::Position rangeLength = rangeEnd - rangeStart;
+    const char *rangePointer = doc->RangePointer(rangeStart, rangeLength);
+    const QString utf8 = QString::fromUtf8(rangePointer, static_cast<qsizetype>(rangeLength));
 
-    // NOTE: QString uses UTF16 counts since QChars are 16 bits
-    QRegularExpressionMatch m = re.match(utf8, 0, QRegularExpression::NormalMatch, QRegularExpression::NoMatchOption);
+    QRegularExpressionMatch selectedMatch;
+    Sci::Position selectedStart = -1;
+    Sci::Position selectedEnd = -1;
 
-    if (!m.hasMatch())
-        return -1; // No match
+    QRegularExpressionMatchIterator iterator = re.globalMatch(utf8);
+    while (iterator.hasNext()) {
+        const QRegularExpressionMatch candidate = iterator.next();
+        if (!candidate.hasMatch()) {
+            continue;
+        }
 
-    match = m;
+        const Sci::Position candidateStart = doc->GetRelativePositionUTF16(
+                rangeStart, candidate.capturedStart(0));
+        const Sci::Position candidateEnd = doc->GetRelativePositionUTF16(
+                candidateStart, candidate.capturedLength(0));
 
-    // NOTE: Returned started is the index into the QString which uses UTF16
-    const int positionStart = doc->GetRelativePositionUTF16(minPos, match.capturedStart(0));
+        if (candidateStart < rangeStart || candidateEnd > rangeEnd
+                || candidateStart < 0 || candidateEnd < candidateStart
+                || !doc->MatchesWordOptions(word, wordStart, candidateStart,
+                                             candidateEnd - candidateStart)) {
+            continue;
+        }
 
-    // Now move ahead however many characters we matched. Again, based on UTF16 count
-    const int positionEnd = doc->GetRelativePositionUTF16(positionStart, match.capturedLength(0));
+        if (forward) {
+            selectedMatch = candidate;
+            selectedStart = candidateStart;
+            selectedEnd = candidateEnd;
+            break;
+        }
 
-    // The length is the number of bytes that was matched
-    *length = positionEnd - positionStart;
+        if (candidateStart >= selectedStart) {
+            selectedMatch = candidate;
+            selectedStart = candidateStart;
+            selectedEnd = candidateEnd;
+        }
+    }
 
-    return positionStart;
+    if (!selectedMatch.hasMatch()) {
+        return -1;
+    }
+
+    match = selectedMatch;
+    *length = selectedEnd - selectedStart;
+    return selectedStart;
 }
 
 const char *QRegexSearch::SubstituteByPosition(Document *doc, const char *text, Sci::Position *length)

@@ -33,3 +33,22 @@ target_link_libraries(NotepadNextCommandPaletteTests
 )
 
 add_test(NAME NotepadNextCommandPaletteTests COMMAND NotepadNextCommandPaletteTests)
+
+qt_add_executable(NotepadNextQRegexSearchTests
+    QRegexSearchTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/QRegexSearch.cpp
+)
+
+target_include_directories(NotepadNextQRegexSearchTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextQRegexSearchTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+        scintilla
+)
+
+add_test(NAME NotepadNextQRegexSearchTests COMMAND NotepadNextQRegexSearchTests)

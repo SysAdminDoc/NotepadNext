@@ -15,3 +15,21 @@ target_link_libraries(NotepadNextSessionJournalTests
 )
 
 add_test(NAME NotepadNextSessionJournalTests COMMAND NotepadNextSessionJournalTests)
+
+qt_add_executable(NotepadNextCommandPaletteTests
+    CommandPaletteTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/CommandPaletteFilter.cpp
+)
+
+target_include_directories(NotepadNextCommandPaletteTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextCommandPaletteTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextCommandPaletteTests COMMAND NotepadNextCommandPaletteTests)

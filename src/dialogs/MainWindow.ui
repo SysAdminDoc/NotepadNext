@@ -966,9 +966,6 @@
    <property name="text">
     <string>Playback</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+P</string>
-   </property>
   </action>
   <action name="actionSaveCurrentRecordedMacro">
    <property name="enabled">

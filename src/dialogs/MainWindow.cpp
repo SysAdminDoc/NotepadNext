@@ -68,6 +68,7 @@
 #include "FileListDock.h"
 
 #include "FindReplaceDialog.h"
+#include "CommandPaletteDialog.h"
 #include "MacroRunDialog.h"
 #include "MacroSaveDialog.h"
 #include "PreferencesDialog.h"
@@ -103,6 +104,16 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     ui->setupUi(this);
 
     applyCustomShortcuts();
+
+    auto *commandPaletteAction = new QAction(tr("Command Palette"), this);
+    commandPaletteAction->setObjectName(QStringLiteral("actionCommandPalette"));
+    commandPaletteAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+P")));
+    addAction(commandPaletteAction);
+    ui->menuSearch->insertAction(ui->menuSearch->actions().constFirst(), commandPaletteAction);
+    connect(commandPaletteAction, &QAction::triggered, this, [this]() {
+        CommandPaletteDialog dialog(this, findChildren<QAction *>());
+        dialog.exec();
+    });
 
     qInfo("setupUi Completed");
 

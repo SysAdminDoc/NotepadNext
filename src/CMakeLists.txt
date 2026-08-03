@@ -5,6 +5,8 @@ qt_add_executable(NotepadNext
 	ApplicationSettings.h
 	ByteArrayUtils.h
 	ColorPickerDelegate.h
+	CommandPaletteDialog.h
+	CommandPaletteFilter.h
 	ComboBoxDelegate.h
 	Converter.h
 	DebugManager.h
@@ -55,6 +57,8 @@ qt_add_executable(NotepadNext
 	scripts.qrc
 	ApplicationSettings.cpp
 	ColorPickerDelegate.cpp
+	CommandPaletteDialog.cpp
+	CommandPaletteFilter.cpp
 	ComboBoxDelegate.cpp
 	Converter.cpp
 	DebugManager.cpp

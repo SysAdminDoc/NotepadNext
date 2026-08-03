@@ -5,7 +5,7 @@ L.lexer = "nimrod"
 L.singleLineComment = "! "
 
 L.extensions = {
-	"nim",
+	"nimrod",
 }
 
 L.keywords = {

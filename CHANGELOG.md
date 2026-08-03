@@ -13,6 +13,8 @@ All notable changes to NotepadNext will be documented in this file.
 - Fixed: Regex search enumeration and Replace All now make progress through zero-length matches without repeating or hanging.
 - Fixed: Regex searches now honor backward ranges, whole-word/word-start boundaries, newline-aware dot matching, and release replacement buffers correctly.
 - Added: Headless document-level regex regression coverage for direction, boundaries, newline mode, and capture replacement.
+- Added: Modern language profiles for Nim, Zig, TOML, Svelte, MDX, HCL, and Terraform, backed by the vendored Lexilla lexers and structural fallbacks where no native lexer is available.
+- Added: Headless coverage that loads modern language definitions and verifies each configured lexer factory.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

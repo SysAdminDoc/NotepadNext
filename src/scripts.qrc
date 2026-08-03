@@ -35,6 +35,7 @@
         <file>languages/freebasic.lua</file>
         <file>languages/gui4cli.lua</file>
         <file>languages/haskell.lua</file>
+        <file>languages/hcl.lua</file>
         <file>languages/html.lua</file>
         <file>languages/ihex.lua</file>
         <file>languages/ini.lua</file>
@@ -45,11 +46,13 @@
         <file>languages/kix.lua</file>
         <file>languages/latex.lua</file>
         <file>languages/lisp.lua</file>
+        <file>languages/mdx.lua</file>
         <file>languages/less.lua</file>
         <file>languages/makefile.lua</file>
         <file>languages/matlab.lua</file>
         <file>languages/mmixal.lua</file>
         <file>languages/nfo.lua</file>
+        <file>languages/nim.lua</file>
         <file>languages/nimrod.lua</file>
         <file>languages/nncrontab.lua</file>
         <file>languages/nsis.lua</file>
@@ -77,6 +80,8 @@
         <file>languages/tcl.lua</file>
         <file>languages/tehex.lua</file>
         <file>languages/tex.lua</file>
+        <file>languages/terraform.lua</file>
+        <file>languages/toml.lua</file>
         <file>languages/txt2tags.lua</file>
         <file>languages/vb.lua</file>
         <file>languages/verilog.lua</file>
@@ -84,8 +89,10 @@
         <file>languages/visualprolog.lua</file>
         <file>languages/xml.lua</file>
         <file>languages/yaml.lua</file>
+        <file>languages/zig.lua</file>
         <file>languages/go.lua</file>
         <file>languages/markdown.lua</file>
+        <file>languages/svelte.lua</file>
         <file>languages/nix.lua</file>
         <file>languages/abaqus.lua</file>
     </qresource>

@@ -52,3 +52,25 @@ target_link_libraries(NotepadNextQRegexSearchTests
 )
 
 add_test(NAME NotepadNextQRegexSearchTests COMMAND NotepadNextQRegexSearchTests)
+
+qt_add_executable(NotepadNextLanguageDefinitionTests
+    LanguageDefinitionTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/LuaState.cpp
+    ${CMAKE_SOURCE_DIR}/src/scripts.qrc
+)
+
+target_include_directories(NotepadNextLanguageDefinitionTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextLanguageDefinitionTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+        lua
+        lexilla
+        scintilla
+)
+
+add_test(NAME NotepadNextLanguageDefinitionTests COMMAND NotepadNextLanguageDefinitionTests)

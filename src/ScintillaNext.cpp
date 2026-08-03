@@ -70,7 +70,8 @@ static QFileDevice::FileError writeToDisk(const QByteArray &data, const QString 
 {
     qInfo(Q_FUNC_INFO);
 
-    QFile file(path);
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning("writeToDisk() failed to open file %s: %s", qPrintable(path), qPrintable(file.errorString()));
         return file.error();
@@ -78,18 +79,23 @@ static QFileDevice::FileError writeToDisk(const QByteArray &data, const QString 
 
     // Write BOM
     const QByteArray bomBytes = bomData(bom);
-    if (!bomBytes.isEmpty() && file.write(bomBytes) == -1) {
+    if (!bomBytes.isEmpty() && file.write(bomBytes) != bomBytes.size()) {
         qWarning("writeToDisk() failed writing BOM: %s", qPrintable(file.errorString()));
         return file.error();
     }
 
     // Write actual data
-    if (file.write(data) == -1) {
+    if (file.write(data) != data.size()) {
         qWarning("writeToDisk() failed writing data: %s", qPrintable(file.errorString()));
         return file.error();
     }
 
-    return file.error();
+    if (!file.commit()) {
+        qWarning("writeToDisk() failed committing file %s: %s", qPrintable(path), qPrintable(file.errorString()));
+        return file.error();
+    }
+
+    return QFileDevice::NoError;
 }
 
 static bool isNewlineCharacter(char c)

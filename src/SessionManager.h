@@ -54,6 +54,12 @@ public:
 
 private:
     QDir sessionDirectory() const;
+    QString sessionManifestPath() const;
+
+    bool saveJournal(MainWindow *window);
+    bool loadJournal(MainWindow *window);
+    void pruneJournalGenerations(const QString &activeGeneration) const;
+    bool isJournalPathSafe(const QDir &generationDirectory, const QString &fileName) const;
 
     void saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const;
 

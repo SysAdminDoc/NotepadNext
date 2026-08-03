@@ -6,6 +6,8 @@ project(NotepadNext
     LANGUAGES CXX
 )
 
+include(CTest)
+
 set(APP_DISTRIBUTION "" CACHE STRING "Distribution type")
 string(TIMESTAMP CURRENT_YEAR "%Y")
 set(APP_COPYRIGHT "Copyright 2019-${CURRENT_YEAR} Justin Dailey")
@@ -37,6 +39,7 @@ find_package(Qt6
             Network
             PrintSupport
             Core5Compat
+            Test
 )
 
 set(CMAKE_AUTORCC ON)
@@ -48,3 +51,7 @@ add_subdirectory(thirdparty)
 add_subdirectory(src)
 
 include(${CMAKE_SOURCE_DIR}/cmake/Packaging.cmake)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

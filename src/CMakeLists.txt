@@ -46,6 +46,7 @@ qt_add_executable(NotepadNext
 	SearchResultsCollector.h
 	SelectionTracker.h
 	SessionManager.h
+	SessionJournal.h
 	SpinBoxDelegate.h
 	TranslationManager.h
 	UndoAction.h
@@ -91,6 +92,7 @@ qt_add_executable(NotepadNext
 	SearchResultsCollector.cpp
 	SelectionTracker.cpp
 	SessionManager.cpp
+	SessionJournal.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	UndoAction.cpp

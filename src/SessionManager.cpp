@@ -21,10 +21,15 @@
 #include "ScintillaNext.h"
 #include "MainWindow.h"
 #include "SessionManager.h"
+#include "SessionJournal.h"
 #include "EditorManager.h"
 #include "NotepadNextApplication.h"
 
 #include <QDir>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QSaveFile>
 #include <QStandardPaths>
 #include <QUuid>
 
@@ -32,6 +37,44 @@
 static QString RandomSessionFileName()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+static QJsonObject editorViewDetails(ScintillaNext *editor)
+{
+    QJsonObject details;
+    details[QStringLiteral("FirstVisibleLine")] = static_cast<int>(editor->firstVisibleLine() + 1);
+    details[QStringLiteral("CurrentPosition")] = static_cast<int>(editor->currentPos());
+
+    BookMarkDecorator *decorator = editor->findChild<BookMarkDecorator*>(QString(), Qt::FindDirectChildrenOnly);
+    const QList<int> bookMarkedLines = decorator->bookMarkedLines();
+    if (!bookMarkedLines.isEmpty()) {
+        QJsonArray bookmarks;
+        for (const int line : bookMarkedLines) {
+            bookmarks.append(line);
+        }
+        details[QStringLiteral("BookMarks")] = bookmarks;
+    }
+
+    return details;
+}
+
+static void loadJournalEditorViewDetails(ScintillaNext *editor, const QJsonObject &details)
+{
+    const int firstVisibleLine = qMax(0, details.value(QStringLiteral("FirstVisibleLine")).toInt(1) - 1);
+    const int currentPosition = qMax(0, details.value(QStringLiteral("CurrentPosition")).toInt());
+
+    editor->setFirstVisibleLine(firstVisibleLine);
+    editor->setEmptySelection(currentPosition);
+
+    if (details.contains(QStringLiteral("BookMarks"))) {
+        QList<int> bookMarkedLines;
+        for (const QJsonValue &value : details.value(QStringLiteral("BookMarks")).toArray()) {
+            bookMarkedLines.append(value.toInt());
+        }
+
+        BookMarkDecorator *decorator = editor->findChild<BookMarkDecorator*>(QString(), Qt::FindDirectChildrenOnly);
+        decorator->setBookMarkedLines(bookMarkedLines);
+    }
 }
 
 // QList<int> cannot be automatically serialized to/from QSettings (i.e. QVariant) so turn it to a QVariantList
@@ -72,6 +115,11 @@ QDir SessionManager::sessionDirectory() const
     d.cd("session");
 
     return d;
+}
+
+QString SessionManager::sessionManifestPath() const
+{
+    return sessionDirectory().filePath(SessionJournal::manifestFileName());
 }
 
 void SessionManager::saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const
@@ -118,68 +166,296 @@ void SessionManager::clearDirectory() const
 {
     QDir d = sessionDirectory();
 
-    for (const QString &f : d.entryList()) {
-        d.remove(f);
+    for (const QString &entry : d.entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
+        const QFileInfo fileInfo(d.filePath(entry));
+        if (fileInfo.isDir()) {
+            QDir(fileInfo.absoluteFilePath()).removeRecursively();
+        }
+        else {
+            d.remove(entry);
+        }
     }
+}
+
+bool SessionManager::saveJournal(MainWindow *window)
+{
+    QDir root = sessionDirectory();
+    const QString generation = QStringLiteral("generation-%1").arg(RandomSessionFileName());
+    if (!root.mkpath(generation)) {
+        qWarning("Unable to create session journal generation %s", qUtf8Printable(generation));
+        return false;
+    }
+
+    const QDir generationDirectory(root.filePath(generation));
+    const auto removeGeneration = [&generationDirectory]() {
+        QDir directory(generationDirectory);
+        if (!directory.removeRecursively()) {
+            qWarning("Unable to remove incomplete session journal generation %s", qUtf8Printable(directory.path()));
+        }
+    };
+
+    QJsonArray openedFiles;
+    const ScintillaNext *currentEditor = window->currentEditor();
+    int currentEditorIndex = -1;
+    int index = 0;
+
+    for (ScintillaNext *editor : window->editors()) {
+        const SessionFileType editorType = determineType(editor);
+        if (!fileTypes.testFlag(editorType)) {
+            continue;
+        }
+
+        QJsonObject details;
+        if (editorType == SessionManager::SavedFile) {
+            details[QStringLiteral("Type")] = QStringLiteral("File");
+            details[QStringLiteral("FilePath")] = editor->getFilePath();
+        }
+        else if (editorType == SessionManager::UnsavedFile) {
+            details[QStringLiteral("Type")] = QStringLiteral("UnsavedFile");
+            details[QStringLiteral("FilePath")] = editor->getFilePath();
+
+            const QString sessionFileName = RandomSessionFileName();
+            if (editor->saveCopyAs(generationDirectory.filePath(sessionFileName)) != QFileDevice::NoError) {
+                qWarning("Unable to save unsaved editor into the session journal");
+                removeGeneration();
+                return false;
+            }
+            details[QStringLiteral("SessionFileName")] = sessionFileName;
+        }
+        else if (editorType == SessionManager::TempFile) {
+            details[QStringLiteral("Type")] = QStringLiteral("Temp");
+            details[QStringLiteral("FileName")] = editor->getName();
+            details[QStringLiteral("Language")] = editor->languageName;
+
+            const QString sessionFileName = RandomSessionFileName();
+            if (editor->saveCopyAs(generationDirectory.filePath(sessionFileName)) != QFileDevice::NoError) {
+                qWarning("Unable to save temporary editor into the session journal");
+                removeGeneration();
+                return false;
+            }
+            details[QStringLiteral("SessionFileName")] = sessionFileName;
+        }
+        else {
+            qWarning("Unknown SessionFileType %d", editorType);
+            removeGeneration();
+            return false;
+        }
+
+        const QJsonObject viewDetails = editorViewDetails(editor);
+        for (auto it = viewDetails.constBegin(); it != viewDetails.constEnd(); ++it) {
+            details.insert(it.key(), it.value());
+        }
+
+        if (currentEditor == editor) {
+            currentEditorIndex = index;
+        }
+
+        openedFiles.append(details);
+        ++index;
+    }
+
+    SessionJournal::Manifest manifest;
+    manifest.generation = generation;
+    manifest.currentEditorIndex = currentEditorIndex;
+    manifest.openedFiles = openedFiles;
+
+    QSaveFile file(sessionManifestPath());
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning("Unable to open session journal manifest: %s", qPrintable(file.errorString()));
+        removeGeneration();
+        return false;
+    }
+
+    const QByteArray data = SessionJournal::serialize(manifest);
+    if (file.write(data) != data.size() || !file.commit()) {
+        qWarning("Unable to commit session journal manifest: %s", qPrintable(file.errorString()));
+        removeGeneration();
+        return false;
+    }
+
+    pruneJournalGenerations(generation);
+    return true;
+}
+
+bool SessionManager::loadJournal(MainWindow *window)
+{
+    QFile file(sessionManifestPath());
+    if (!file.exists()) {
+        return false;
+    }
+
+    if (!file.open(QIODevice::ReadOnly)) {
+        qWarning("Unable to open session journal manifest: %s", qPrintable(file.errorString()));
+        return false;
+    }
+
+    QString parseErrorString;
+    const auto parsedManifest = SessionJournal::parse(file.readAll(), &parseErrorString);
+    if (!parsedManifest.has_value()) {
+        qWarning("Ignoring invalid session journal manifest: %s", qUtf8Printable(parseErrorString));
+        return false;
+    }
+
+    const QString generation = parsedManifest->generation;
+    QDir root = sessionDirectory();
+    if (!generation.startsWith(QStringLiteral("generation-")) || QFileInfo(generation).fileName() != generation) {
+        qWarning("Ignoring session journal with an unsafe generation name");
+        return false;
+    }
+
+    const QDir generationDirectory(root.filePath(generation));
+    if (!generationDirectory.exists()) {
+        qWarning("Ignoring session journal with a missing generation");
+        return false;
+    }
+
+    const QJsonArray openedFiles = parsedManifest->openedFiles;
+    const int currentEditorIndex = parsedManifest->currentEditorIndex;
+    ScintillaNext *currentEditor = Q_NULLPTR;
+
+    for (int index = 0; index < openedFiles.size(); ++index) {
+        const QJsonObject details = openedFiles.at(index).toObject();
+        const QString type = details.value(QStringLiteral("Type")).toString();
+        ScintillaNext *editor = Q_NULLPTR;
+
+        if (type == QStringLiteral("File")) {
+            const QString filePath = details.value(QStringLiteral("FilePath")).toString();
+            if (!QFileInfo::exists(filePath)) {
+                qDebug("Session file no longer exists: %s", qUtf8Printable(filePath));
+            }
+            else if (app->getEditorManager()->getEditorByFilePath(filePath) != Q_NULLPTR) {
+                qDebug("Session file is already open, ignoring: %s", qUtf8Printable(filePath));
+            }
+            else {
+                editor = ScintillaNext::fromFile(filePath);
+            }
+        }
+        else if (type == QStringLiteral("UnsavedFile") || type == QStringLiteral("Temp")) {
+            const QString sessionFileName = details.value(QStringLiteral("SessionFileName")).toString();
+            if (!isJournalPathSafe(generationDirectory, sessionFileName)) {
+                qWarning("Ignoring session journal entry with an unsafe buffer path");
+                continue;
+            }
+
+            const QString sessionFilePath = generationDirectory.filePath(sessionFileName);
+            if (!QFileInfo::exists(sessionFilePath)) {
+                qWarning("Ignoring session journal entry with a missing buffer");
+                continue;
+            }
+
+            editor = ScintillaNext::fromFile(sessionFilePath, false);
+            if (editor == Q_NULLPTR) {
+                continue;
+            }
+
+            if (type == QStringLiteral("UnsavedFile")) {
+                const QString filePath = details.value(QStringLiteral("FilePath")).toString();
+                if (!filePath.isEmpty() && app->getEditorManager()->getEditorByFilePath(filePath) != Q_NULLPTR) {
+                    delete editor;
+                    continue;
+                }
+
+                if (QFileInfo::exists(filePath)) {
+                    editor->setFileInfo(filePath);
+                }
+                else {
+                    QString recoveredName = QFileInfo(filePath).fileName();
+                    if (recoveredName.isEmpty()) {
+                        recoveredName = QStringLiteral("Recovered");
+                    }
+                    editor->detachFileInfo(recoveredName);
+                }
+            }
+            else {
+                editor->detachFileInfo(details.value(QStringLiteral("FileName")).toString());
+            }
+
+            editor->setTemporary(true);
+        }
+        else {
+            qWarning("Ignoring unknown session journal entry type: %s", qUtf8Printable(type));
+            continue;
+        }
+
+        if (editor == Q_NULLPTR) {
+            continue;
+        }
+
+        app->getEditorManager()->manageEditor(editor);
+        loadJournalEditorViewDetails(editor, details);
+
+        if (type == QStringLiteral("Temp")) {
+            const QString languageName = details.value(QStringLiteral("Language")).toString();
+            if (!languageName.isEmpty()) {
+                app->setEditorLanguage(editor, languageName);
+            }
+        }
+
+        if (index == currentEditorIndex) {
+            currentEditor = editor;
+        }
+    }
+
+    if (currentEditor != Q_NULLPTR) {
+        window->switchToEditor(currentEditor);
+    }
+
+    return true;
+}
+
+void SessionManager::pruneJournalGenerations(const QString &activeGeneration) const
+{
+    QDir root = sessionDirectory();
+
+    for (const QString &directoryName : root.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (directoryName.startsWith(QStringLiteral("generation-")) && directoryName != activeGeneration) {
+            QDir(root.filePath(directoryName)).removeRecursively();
+        }
+    }
+
+    for (const QString &fileName : root.entryList(QDir::Files | QDir::NoDotAndDotDot)) {
+        if (fileName != SessionJournal::manifestFileName()) {
+            root.remove(fileName);
+        }
+    }
+}
+
+bool SessionManager::isJournalPathSafe(const QDir &generationDirectory, const QString &fileName) const
+{
+    return SessionJournal::isSafeBufferName(generationDirectory, fileName);
 }
 
 void SessionManager::saveSession(MainWindow *window)
 {
     qInfo(Q_FUNC_INFO);
 
-    clear();
-
     // Early out if no flags are set
     if (fileTypes == SessionManager::None) {
+        clear();
         return;
     }
 
-    const ScintillaNext *currentEditor = window->currentEditor();
-    int currentEditorIndex = 0;
-    ApplicationSettings settings;;
-
-    settings.beginGroup("CurrentSession");
-
-    settings.beginWriteArray("OpenedFiles");
-
-    int index = 0;
-    for (const auto &editor : window->editors()) {
-        SessionFileType editorType = determineType(editor);
-
-        if (fileTypes.testFlag(editorType)) {
-            settings.setArrayIndex(index);
-
-            if (editorType == SessionManager::SavedFile) {
-                storeFileDetails(editor, settings);
-            }
-            else if (editorType == SessionManager::UnsavedFile) {
-                storeUnsavedFileDetails(editor, settings);
-            }
-            else if (editorType == SessionManager::TempFile) {
-                storeTempFile(editor, settings);
-            }
-            else {
-                qWarning("Unknown SessionFileType %d", editorType);
-            }
-
-            if (currentEditor == editor) {
-                currentEditorIndex = index;
-            }
-
-            ++index;
-        }
+    if (!saveJournal(window)) {
+        qWarning("Unable to commit the session journal; retaining the previous recovery point");
+        return;
     }
 
-    settings.endArray();
+    // The journal is now durable. Remove only the legacy settings after the
+    // atomic manifest commit so a crash during this cleanup still restores the
+    // newest complete session.
+    clearSettings();
+    return;
 
-    settings.setValue("CurrentEditorIndex", currentEditorIndex);
-
-    settings.endGroup();
 }
 
 void SessionManager::loadSession(MainWindow *window)
 {
     qInfo(Q_FUNC_INFO);
+
+    if (loadJournal(window)) {
+        return;
+    }
 
     ApplicationSettings settings;;
 

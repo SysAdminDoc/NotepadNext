@@ -44,6 +44,12 @@ find_package(Qt6
             Test
 )
 
+find_package(Qt6 COMPONENTS WebEngineWidgets QUIET)
+set(NOTEPADNEXT_HAS_WEBENGINE OFF)
+if (Qt6WebEngineWidgets_FOUND)
+    set(NOTEPADNEXT_HAS_WEBENGINE ON)
+endif()
+
 set(CMAKE_AUTORCC ON)
 qt_standard_project_setup()
 

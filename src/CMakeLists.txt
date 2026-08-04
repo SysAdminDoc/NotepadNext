@@ -27,6 +27,8 @@ qt_add_executable(NotepadNext
 	LanguageStylesModel.h
 	LspClient.h
 	LspManager.h
+	MarkdownPreviewDock.h
+	MarkdownRenderer.h
 	LuaExtension.h
 	LuaState.h
 	Macro.h
@@ -84,6 +86,8 @@ qt_add_executable(NotepadNext
 	LanguageStylesModel.cpp
 	LspClient.cpp
 	LspManager.cpp
+	MarkdownPreviewDock.cpp
+	MarkdownRenderer.cpp
 	LuaExtension.cpp
 	LuaState.cpp
 	Macro.cpp
@@ -267,6 +271,11 @@ target_link_libraries(NotepadNext
         uchardet
 		yaml-cpp::yaml-cpp
 )
+
+if (NOTEPADNEXT_HAS_WEBENGINE)
+    target_compile_definitions(NotepadNext PRIVATE NOTEPADNEXT_HAS_WEBENGINE)
+    target_link_libraries(NotepadNext PRIVATE Qt6::WebEngineWidgets)
+endif()
 
 target_include_directories(NotepadNext PRIVATE ${CPM_PACKAGE_tomlplusplus_SOURCE_DIR}/include)
 

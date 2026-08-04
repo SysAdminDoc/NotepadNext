@@ -78,6 +78,8 @@ Editor language services are available when their server is installed on `PATH`:
 
 JSON, YAML, and TOML documents can be validated against JSON Schema documents from the Search menu or command palette. Choose **Validate Document Against Schema...** to attach a schema to the current document, or use **Clear Document Schema** to return to automatic discovery. The editor also checks `<document>.schema.json`, `<document-name>.schema.json`, `.notepadnext-schema.json`, local `schema:`/`yaml-language-server` directives, and local `$schema` paths. Validation is debounced while editing and marks failures with squiggles; remote schema URLs are ignored so validation remains offline.
 
+Markdown and MDX documents can be previewed live from **View > Markdown Preview**. The preview opens as a docked split pane, follows the active editor, refreshes while typing, and resolves local images and links relative to the document. Qt WebEngine is used when the installed Qt kit provides it; otherwise the preview uses Qt's built-in Markdown renderer with scripting disabled.
+
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.

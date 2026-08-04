@@ -46,6 +46,7 @@ class ZoomEventWatcher;
 class Converter;
 class DefaultDirectoryManager;
 class TabsQuickActionsBar;
+class MarkdownPreviewDock;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
 #endif
@@ -159,6 +160,7 @@ private:
     Ui::MainWindow *ui = Q_NULLPTR;
     NotepadNextApplication *app = Q_NULLPTR;
     DockedEditor *dockedEditor = Q_NULLPTR;
+    MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
 
     QScopedPointer<SearchResultsCollector> searchResults;
 

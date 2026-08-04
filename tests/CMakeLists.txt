@@ -195,3 +195,24 @@ target_link_libraries(NotepadNextSchemaValidatorTests
 )
 
 add_test(NAME NotepadNextSchemaValidatorTests COMMAND NotepadNextSchemaValidatorTests)
+
+qt_add_executable(NotepadNextMarkdownPreviewTests
+    MarkdownPreviewTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/MarkdownRenderer.cpp
+)
+
+target_include_directories(NotepadNextMarkdownPreviewTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextMarkdownPreviewTests
+    PRIVATE
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextMarkdownPreviewTests COMMAND NotepadNextMarkdownPreviewTests)
+set_tests_properties(NotepadNextMarkdownPreviewTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

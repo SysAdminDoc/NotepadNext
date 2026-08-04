@@ -66,6 +66,7 @@
 #include "LspManager.h"
 #include "SchemaManager.h"
 #include "SchemaValidator.h"
+#include "MarkdownPreviewDock.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -206,6 +207,13 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(dockedEditor, &DockedEditor::editorActivated, this, &MainWindow::activateEditor);
     connect(dockedEditor, &DockedEditor::contextMenuRequestedForEditor, this, &MainWindow::tabBarRightClicked);
     connect(dockedEditor, &DockedEditor::titleBarDoubleClicked, this, &MainWindow::newFile);
+
+    markdownPreview = new MarkdownPreviewDock(this);
+    markdownPreview->hide();
+    addDockWidget(Qt::RightDockWidgetArea, markdownPreview);
+    ui->menuView->addAction(markdownPreview->toggleViewAction());
+    connect(this, &MainWindow::editorActivated, markdownPreview, &MarkdownPreviewDock::setEditor);
+    connect(dockedEditor, &DockedEditor::editorClosed, markdownPreview, &MarkdownPreviewDock::editorClosed);
 
     // Set up the menus
     connect(ui->actionNew, &QAction::triggered, this, &MainWindow::newFile);
@@ -2494,6 +2502,9 @@ void MainWindow::addEditor(ScintillaNext *editor)
 
     // The editor has been entirely configured at this point, so add it to the docked editor
     dockedEditor->addEditor(editor);
+    if (currentEditor() == editor) {
+        markdownPreview->setEditor(editor);
+    }
 }
 
 void MainWindow::checkForUpdates(bool silent)

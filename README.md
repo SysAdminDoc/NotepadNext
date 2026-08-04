@@ -68,6 +68,8 @@ If you are familiar with building C++ Qt desktop applications with Qt Creator, t
 
 The build includes the optional Tree-sitter JSON lexer by default. Disable it with `-DNOTEPADNEXT_ENABLE_TREE_SITTER=OFF` when a minimal build without the parser dependency is preferred.
 
+Editor language services are available when their server is installed on `PATH`: `clangd` for C/C++, `pyright-langserver` for Python, `rust-analyzer` for Rust, and `gopls` for Go. Diagnostics are shown as editor squiggles, hover information appears after briefly resting the pointer over a symbol, and `F12` requests go-to-definition. The editor continues to work normally when a server is not installed.
+
 If you are new to building C++ Qt desktop applications, there is a more detailed guide [here](/doc/Building.md).
 
 

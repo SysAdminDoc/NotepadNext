@@ -58,6 +58,7 @@
 #include "RecentFilesListManager.h"
 #include "RecentFilesListMenuBuilder.h"
 #include "EditorManager.h"
+#include "LspManager.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -113,6 +114,17 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(commandPaletteAction, &QAction::triggered, this, [this]() {
         CommandPaletteDialog dialog(this, findChildren<QAction *>());
         dialog.exec();
+    });
+
+    auto *goToDefinitionAction = new QAction(tr("Go to Definition"), this);
+    goToDefinitionAction->setObjectName(QStringLiteral("actionGoToDefinition"));
+    goToDefinitionAction->setShortcut(QKeySequence(Qt::Key_F12));
+    addAction(goToDefinitionAction);
+    ui->menuSearch->addAction(goToDefinitionAction);
+    connect(goToDefinitionAction, &QAction::triggered, this, [this]() {
+        if (currentEditor() && this->app->getLspManager()) {
+            this->app->getLspManager()->requestDefinition(currentEditor());
+        }
     });
 
     qInfo("setupUi Completed");

@@ -37,6 +37,7 @@ class ScintillaNext;
 class SessionManager;
 class TranslationManager;
 class NppPluginManager;
+class LspManager;
 
 
 class NotepadNextApplication : public SingleApplication
@@ -52,6 +53,7 @@ public:
     EditorManager *getEditorManager() const { return editorManager; }
     SessionManager *getSessionManager() const;
     TranslationManager *getTranslationManager() const { return translationManager; };
+    LspManager *getLspManager() const { return lspManager; }
 
     LuaState *getLuaState() const { return luaState; }
     QString getFileDialogFilter() const;
@@ -90,6 +92,7 @@ private:
     SessionManager *sessionManager;
     TranslationManager *translationManager;
     NppPluginManager *nppPluginManager = Q_NULLPTR;
+    LspManager *lspManager = Q_NULLPTR;
 
     LuaState *luaState = Q_NULLPTR;
 

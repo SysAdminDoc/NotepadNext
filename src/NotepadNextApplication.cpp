@@ -28,6 +28,7 @@
 #include "TranslationManager.h"
 #include "ApplicationSettings.h"
 #include "NppPluginManager.h"
+#include "LspManager.h"
 
 #include "LuaState.h"
 #include "lua.hpp"
@@ -130,6 +131,7 @@ bool NotepadNextApplication::init()
 
     recentFilesListManager = new RecentFilesListManager(this);
     editorManager = new EditorManager(settings, this);
+    lspManager = new LspManager(editorManager, this);
     sessionManager = new SessionManager(this);
 
     connect(editorManager, &EditorManager::editorCreated, recentFilesListManager, [this](ScintillaNext *editor) {

@@ -24,6 +24,8 @@ qt_add_executable(NotepadNext
 	IFaceTableMixer.h
 	ISearchResultsHandler.h
 	LanguageStylesModel.h
+	LspClient.h
+	LspManager.h
 	LuaExtension.h
 	LuaState.h
 	Macro.h
@@ -75,6 +77,8 @@ qt_add_executable(NotepadNext
 	IFaceTable.cpp
 	IFaceTableMixer.cpp
 	LanguageStylesModel.cpp
+	LspClient.cpp
+	LspManager.cpp
 	LuaExtension.cpp
 	LuaState.cpp
 	Macro.cpp

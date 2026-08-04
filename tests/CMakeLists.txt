@@ -96,3 +96,21 @@ if(NOTEPADNEXT_ENABLE_TREE_SITTER)
 
     add_test(NAME NotepadNextTreeSitterTests COMMAND NotepadNextTreeSitterTests)
 endif()
+
+qt_add_executable(NotepadNextLspProtocolTests
+    LspProtocolTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/LspClient.cpp
+)
+
+target_include_directories(NotepadNextLspProtocolTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextLspProtocolTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextLspProtocolTests COMMAND NotepadNextLspProtocolTests)

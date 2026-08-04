@@ -72,6 +72,7 @@
 #include "PortableMode.h"
 #include "TerminalDock.h"
 #include "FindInFilesDock.h"
+#include "RegexBuilderDock.h"
 #include "ScriptConsoleDock.h"
 
 #include "LuaConsoleDock.h"
@@ -640,6 +641,27 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         editor->goToRange({start, end});
         editor->verticalCentreCaret();
         editor->grabFocus();
+    });
+
+    regexBuilderDock = new RegexBuilderDock(this, this);
+    regexBuilderDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, regexBuilderDock);
+    QAction *regexBuilderAction = regexBuilderDock->toggleViewAction();
+    regexBuilderAction->setObjectName(QStringLiteral("actionRegexBuilder"));
+    regexBuilderAction->setText(tr("Regex Builder"));
+    regexBuilderAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Alt+R")));
+    regexBuilderAction->setShortcutContext(Qt::WindowShortcut);
+    ui->menuSearch->addAction(regexBuilderAction);
+    connect(regexBuilderAction, &QAction::triggered, this, [this]() {
+        ScintillaNext *editor = currentEditor();
+        if (editor && !editor->selectionEmpty()) {
+            regexBuilderDock->loadCurrentSelection();
+        } else {
+            regexBuilderDock->loadCurrentDocument();
+        }
+        regexBuilderDock->show();
+        regexBuilderDock->raise();
+        regexBuilderDock->focusPattern();
     });
 
     connect(ui->actionFind, &QAction::triggered, this, [this]() {

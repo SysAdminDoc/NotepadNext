@@ -49,6 +49,7 @@ class TabsQuickActionsBar;
 class MarkdownPreviewDock;
 class TerminalDock;
 class FindInFilesDock;
+class RegexBuilderDock;
 class ScriptConsoleDock;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
@@ -166,6 +167,7 @@ private:
     MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
     TerminalDock *terminalDock = Q_NULLPTR;
     FindInFilesDock *findInFilesDock = Q_NULLPTR;
+    RegexBuilderDock *regexBuilderDock = Q_NULLPTR;
     ScriptConsoleDock *scriptConsoleDock = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;
     QAction *unstageCurrentFileAction = Q_NULLPTR;

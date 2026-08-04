@@ -33,6 +33,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: SFTP remote editing through pinned libssh2 with password/private-key authentication, known-host verification, temporary document mirrors, and remote Save uploads.
 - Added: Portable-mode auto-detection for removable launch volumes, with an optional `portable` directory marker and profile-local settings/session data.
 - Added: A docked QuickJS-NG JavaScript console with a document automation bridge, script-file execution, output helpers, memory limits, and runaway-script interruption.
+- Added: A Regex Builder dock with live match inspection, named and numbered capture-group visualization, sample-text highlighting, and current-document/selection loading.
 - Added: Persisted Fusion, Material, and Fluent theme variants with immediate View-menu switching, palette/QSS styling, and custom CSS overrides.
 - Added: Selectable Default, Nord, Catppuccin, and GitHub Dark icon packs with semantic accent colors and transparency-preserving recoloring.
 - Added: Windows custom frameless title bar with native resize hit-testing, window controls, and guarded DWM Mica/rounded-corner attributes.

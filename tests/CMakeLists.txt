@@ -53,6 +53,24 @@ target_link_libraries(NotepadNextQRegexSearchTests
 
 add_test(NAME NotepadNextQRegexSearchTests COMMAND NotepadNextQRegexSearchTests)
 
+qt_add_executable(NotepadNextRegexBuilderTests
+    RegexBuilderTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/RegexBuilder.cpp
+)
+
+target_include_directories(NotepadNextRegexBuilderTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextRegexBuilderTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextRegexBuilderTests COMMAND NotepadNextRegexBuilderTests)
+
 qt_add_executable(NotepadNextLanguageDefinitionTests
     LanguageDefinitionTests.cpp
     ${CMAKE_SOURCE_DIR}/src/LuaState.cpp

@@ -88,6 +88,8 @@ The **View > Integrated Terminal** pane runs the platform shell through Qt's `QP
 
 **Search > Find in Files...** uses `ripgrep` (`rg`) from `PATH` to search a folder asynchronously. Literal and regular-expression modes, case sensitivity, hidden-file inclusion, live results, cancellation, and click-to-open line navigation are supported.
 
+**Search > Regex Builder** provides a live regular-expression workbench. Enter a pattern and sample text, or load the current document/selection; matches and numbered or named capture groups are listed with offsets, and each capture is highlighted in the sample text. Case-insensitive and dot-matches-newline options use the same Qt regular-expression engine as the editor search adapter.
+
 **View > Scripting Console** runs reusable JavaScript against the active document through the pinned QuickJS-NG engine. The console exposes `notepad.text()`, `notepad.setText(value)`, `notepad.selectedText()`, `notepad.replaceSelection(value)`, `notepad.insertText(value)`, `notepad.filePath()`, `notepad.save()`, `notepad.openFile(path)`, and `notepad.log(value)`. `Run Script File...` loads `.js` and `.mjs` files; `print(value)` and `console.log(value)` write to the dock output.
 
 **File > Open Remote File...** opens an SFTP document through the pinned libssh2 client. Password and private-key authentication are supported; credentials stay in memory, the document is mirrored in a temporary local file for editing, and Save uploads the edited contents back to the remote path. Known host keys are checked against an OpenSSH `known_hosts` file, with an explicit fingerprint confirmation for a new host.

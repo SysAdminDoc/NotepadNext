@@ -46,6 +46,8 @@ qt_add_executable(NotepadNext
 	NppImporter.h
 	PortableMode.h
 	QRegexSearch.h
+	RegexBuilder.h
+	RegexBuilderDock.h
 	RangeAllocator.h
 	RecentFilesListManager.h
 	RecentFilesListMenuBuilder.h
@@ -117,6 +119,8 @@ qt_add_executable(NotepadNext
 	NppImporter.cpp
 	PortableMode.cpp
 	QRegexSearch.cpp
+	RegexBuilder.cpp
+	RegexBuilderDock.cpp
 	RangeAllocator.cpp
 	RecentFilesListManager.cpp
 	RecentFilesListMenuBuilder.cpp

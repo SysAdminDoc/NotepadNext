@@ -155,3 +155,16 @@ add_test(NAME NotepadNextIconThemeManagerTests COMMAND NotepadNextIconThemeManag
 set_tests_properties(NotepadNextIconThemeManagerTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+qt_add_executable(NotepadNextFontLigatureTests
+    FontLigatureTests.cpp
+)
+
+target_link_libraries(NotepadNextFontLigatureTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextFontLigatureTests COMMAND NotepadNextFontLigatureTests)

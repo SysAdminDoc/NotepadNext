@@ -152,6 +152,14 @@ public:
 		pfont->setBold(static_cast<int>(fp.weight) > 500);
 		pfont->setStretch(QStretchFromFontStretch(fp.stretch));
 		pfont->setItalic(fp.italic);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+		// Qt's text shaper is backed by HarfBuzz. Explicitly enable the
+		// standard and contextual OpenType features used by programming fonts
+		// such as Fira Code and Cascadia Code.
+		pfont->setFeature(QFont::Tag("liga"), 1);
+		pfont->setFeature(QFont::Tag("clig"), 1);
+		pfont->setFeature(QFont::Tag("calt"), 1);
+#endif
 	}
 };
 

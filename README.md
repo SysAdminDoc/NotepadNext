@@ -74,6 +74,8 @@ The View menu provides Fusion, Material, and Fluent theme variants, plus Default
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.
 
+Programming fonts use Qt’s HarfBuzz-backed shaping with standard (`liga`/`clig`) and contextual (`calt`) OpenType features enabled when the Qt version exposes explicit feature control.
+
 If you are new to building C++ Qt desktop applications, there is a more detailed guide [here](/doc/Building.md).
 
 

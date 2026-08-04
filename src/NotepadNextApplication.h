@@ -40,6 +40,7 @@ class NppPluginManager;
 class LspManager;
 class SchemaManager;
 class GitManager;
+class SftpManager;
 
 
 class NotepadNextApplication : public SingleApplication
@@ -58,6 +59,7 @@ public:
     LspManager *getLspManager() const { return lspManager; }
     SchemaManager *getSchemaManager() const { return schemaManager; }
     GitManager *getGitManager() const { return gitManager; }
+    SftpManager *getSftpManager() const { return sftpManager; }
 
     LuaState *getLuaState() const { return luaState; }
     QString getFileDialogFilter() const;
@@ -99,6 +101,7 @@ private:
     LspManager *lspManager = Q_NULLPTR;
     SchemaManager *schemaManager = Q_NULLPTR;
     GitManager *gitManager = Q_NULLPTR;
+    SftpManager *sftpManager = Q_NULLPTR;
 
     LuaState *luaState = Q_NULLPTR;
 

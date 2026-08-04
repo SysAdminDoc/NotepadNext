@@ -22,6 +22,7 @@
 #include "MainWindow.h"
 #include "SessionManager.h"
 #include "SessionJournal.h"
+#include "SftpManager.h"
 #include "EditorManager.h"
 #include "NotepadNextApplication.h"
 
@@ -129,6 +130,10 @@ void SessionManager::saveIntoSessionDirectory(ScintillaNext *editor, const QStri
 
 SessionManager::SessionFileType SessionManager::determineType(ScintillaNext *editor) const
 {
+    if (app->getSftpManager() && app->getSftpManager()->isRemote(editor)) {
+        return SessionManager::None;
+    }
+
     if (editor->isFile()) {
         if (editor->isSavedToDisk()) {
             return SessionManager::SavedFile;
@@ -201,7 +206,7 @@ bool SessionManager::saveJournal(MainWindow *window)
 
     for (ScintillaNext *editor : window->editors()) {
         const SessionFileType editorType = determineType(editor);
-        if (!fileTypes.testFlag(editorType)) {
+        if (editorType == SessionManager::None || !fileTypes.testFlag(editorType)) {
             continue;
         }
 
@@ -515,7 +520,7 @@ bool SessionManager::willFileGetStoredInSession(ScintillaNext *editor) const
     SessionFileType editorType = determineType(editor);
 
     // See if the editor type is in the currently supported file types
-    return fileTypes.testFlag(editorType);
+    return editorType != SessionManager::None && fileTypes.testFlag(editorType);
 }
 
 void SessionManager::storeFileDetails(ScintillaNext *editor, QSettings &settings)

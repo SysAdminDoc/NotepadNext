@@ -68,6 +68,7 @@
 #include "SchemaValidator.h"
 #include "MarkdownPreviewDock.h"
 #include "GitManager.h"
+#include "SftpManager.h"
 #include "TerminalDock.h"
 #include "FindInFilesDock.h"
 
@@ -144,6 +145,14 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         if (currentEditor() && this->app->getLspManager()) {
             this->app->getLspManager()->requestDefinition(currentEditor());
         }
+    });
+
+    auto *openRemoteAction = new QAction(tr("Open Remote File..."), this);
+    openRemoteAction->setObjectName(QStringLiteral("actionOpenRemoteFile"));
+    addAction(openRemoteAction);
+    ui->menuFile->insertAction(ui->actionOpenFolderasWorkspace, openRemoteAction);
+    connect(openRemoteAction, &QAction::triggered, this, [this]() {
+        this->app->getSftpManager()->openRemote(this);
     });
 
     auto *validateSchemaAction = new QAction(tr("Validate Document Against Schema..."), this);
@@ -505,7 +514,10 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(ui->actionCopyFullPath, &QAction::triggered, this, [this]() {
         auto editor = currentEditor();
         if (editor->isFile()) {
-            QApplication::clipboard()->setText(editor->getFilePath());
+            const QString path = this->app->getSftpManager()->isRemote(editor)
+                ? this->app->getSftpManager()->displayName(editor)
+                : editor->getFilePath();
+            QApplication::clipboard()->setText(path);
         }
     });
     connect(ui->actionCopyFileName, &QAction::triggered, this, [this]() {
@@ -1710,6 +1722,20 @@ bool MainWindow::saveCurrentFile()
 
 bool MainWindow::saveFile(ScintillaNext *editor)
 {
+    if (app->getSftpManager()->isRemote(editor)) {
+        if (editor->isSavedToDisk()) {
+            return true;
+        }
+
+        QString error;
+        if (app->getSftpManager()->saveRemote(editor, &error)) {
+            return true;
+        }
+
+        QMessageBox::warning(this, tr("SFTP Save Failed"), error);
+        return false;
+    }
+
     if (editor->isSavedToDisk())
         return true;
 
@@ -1759,9 +1785,14 @@ bool MainWindow::saveFileAs(ScintillaNext *editor, const QString &fileName)
 {
     qInfo("saveFileAs(%s)", qUtf8Printable(fileName));
 
+    const bool wasRemote = app->getSftpManager()->isRemote(editor);
     QFileDevice::FileError error = editor->saveAs(fileName);
 
     if (error == QFileDevice::NoError) {
+        if (wasRemote) {
+            app->getSftpManager()->forgetRemote(editor);
+            updateFileStatusBasedUi(editor);
+        }
         return true;
     }
     else {
@@ -1857,6 +1888,13 @@ void MainWindow::copyAsFormat(Converter *converter, const QString &mimeType)
 void MainWindow::renameFile()
 {
     ScintillaNext *editor = currentEditor();
+
+    if (app->getSftpManager()->isRemote(editor)) {
+        QMessageBox::information(this,
+                                 tr("SFTP Rename"),
+                                 tr("Remote rename is not supported. Use Save As to create a local copy."));
+        return;
+    }
 
     if (editor->isFile()) {
         const QString filter = app->getFileDialogFilter();
@@ -1994,9 +2032,13 @@ void MainWindow::updateFileStatusBasedUi(ScintillaNext *editor)
     qInfo(Q_FUNC_INFO);
 
     bool isFile = editor->isFile();
+    const bool isRemote = app->getSftpManager()->isRemote(editor);
     QString fileName;
 
-    if (isFile) {
+    if (isRemote) {
+        fileName = app->getSftpManager()->displayName(editor);
+    }
+    else if (isFile) {
         fileName = editor->getFilePath();
     }
     else {
@@ -2009,12 +2051,13 @@ void MainWindow::updateFileStatusBasedUi(ScintillaNext *editor)
     }
     setWindowTitle(title);
 
-    ui->actionReload->setEnabled(isFile);
-    ui->actionMoveToTrash->setEnabled(isFile);
+    ui->actionReload->setEnabled(isFile && !isRemote);
+    ui->actionMoveToTrash->setEnabled(isFile && !isRemote);
     ui->actionCopyFullPath->setEnabled(isFile);
-    ui->actionCopyFileDirectory->setEnabled(isFile);
-    ui->actionShowInExplorer->setEnabled(isFile);
-    ui->actionOpenTerminalHere->setEnabled(isFile);
+    ui->actionCopyFileDirectory->setEnabled(isFile && !isRemote);
+    ui->actionShowInExplorer->setEnabled(isFile && !isRemote);
+    ui->actionOpenTerminalHere->setEnabled(isFile && !isRemote);
+    ui->actionRename->setEnabled(!isRemote);
 }
 
 bool MainWindow::isAnyUnsaved() const
@@ -2114,7 +2157,8 @@ void MainWindow::updateGui(ScintillaNext *editor)
 
     if (stageCurrentFileAction && unstageCurrentFileAction) {
         const GitRepository::FileState state = app->getGitManager()->stateForEditor(editor);
-        const bool canUseGit = editor && editor->isFile() && state.inRepository && state.error.isEmpty();
+        const bool canUseGit = editor && editor->isFile() && !app->getSftpManager()->isRemote(editor)
+            && state.inRepository && state.error.isEmpty();
         stageCurrentFileAction->setEnabled(canUseGit && state.unstaged);
         unstageCurrentFileAction->setEnabled(canUseGit && state.staged);
     }

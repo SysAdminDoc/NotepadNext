@@ -272,3 +272,24 @@ target_link_libraries(NotepadNextRipgrepSearchTests
 )
 
 add_test(NAME NotepadNextRipgrepSearchTests COMMAND NotepadNextRipgrepSearchTests)
+
+qt_add_executable(NotepadNextSftpClientTests
+    SftpClientTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/SftpClient.cpp
+)
+
+target_include_directories(NotepadNextSftpClientTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CPM_PACKAGE_libssh2_SOURCE_DIR}/include
+)
+
+target_link_libraries(NotepadNextSftpClientTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Test
+        libssh2::libssh2
+)
+
+add_test(NAME NotepadNextSftpClientTests COMMAND NotepadNextSftpClientTests)

@@ -50,6 +50,9 @@ qt_add_executable(NotepadNext
 	RecentFilesListMenuBuilder.h
 	RtfConverter.h
 	RipgrepSearch.h
+	SftpClient.h
+	SftpConnectionDialog.h
+	SftpManager.h
 	SciIFaceTable.h
 	ScintillaCommenter.h
 	ScintillaEnums.h
@@ -115,6 +118,9 @@ qt_add_executable(NotepadNext
 	RecentFilesListMenuBuilder.cpp
 	RtfConverter.cpp
 	RipgrepSearch.cpp
+	SftpClient.cpp
+	SftpConnectionDialog.cpp
+	SftpManager.cpp
 	SciIFaceTable.cpp
 	ScintillaCommenter.cpp
 	ScintillaNext.cpp
@@ -251,6 +257,7 @@ target_include_directories(NotepadNext
         ${CMAKE_CURRENT_SOURCE_DIR}/widgets
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
+        ${CPM_PACKAGE_libssh2_SOURCE_DIR}/include
 )
 
 if(WIN32)
@@ -284,6 +291,7 @@ target_link_libraries(NotepadNext
         uchardet
 		yaml-cpp::yaml-cpp
 		libgit2package
+		libssh2::libssh2
 )
 
 if (NOTEPADNEXT_HAS_WEBENGINE)

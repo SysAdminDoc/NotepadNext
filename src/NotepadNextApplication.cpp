@@ -31,6 +31,7 @@
 #include "LspManager.h"
 #include "SchemaManager.h"
 #include "GitManager.h"
+#include "SftpManager.h"
 
 #include "LuaState.h"
 #include "lua.hpp"
@@ -136,19 +137,21 @@ bool NotepadNextApplication::init()
     lspManager = new LspManager(editorManager, this);
     schemaManager = new SchemaManager(editorManager, this);
     gitManager = new GitManager(editorManager, this);
-    sessionManager = new SessionManager(this);
 
     connect(editorManager, &EditorManager::editorCreated, recentFilesListManager, [this](ScintillaNext *editor) {
-        if (editor->isFile()) {
+        if (editor->isFile() && !sftpManager->isRemote(editor)) {
             recentFilesListManager->removeFile(editor->getFilePath());
         }
     });
 
     connect(editorManager, &EditorManager::editorClosed, recentFilesListManager, [this](ScintillaNext *editor) {
-        if (editor->isFile()) {
+        if (editor->isFile() && !sftpManager->isRemote(editor)) {
             recentFilesListManager->addFile(editor->getFilePath());
         }
     });
+
+    sftpManager = new SftpManager(editorManager, this);
+    sessionManager = new SessionManager(this);
 
     loadSettings();
 
@@ -482,7 +485,7 @@ void NotepadNextApplication::saveSession()
 {
     // Iterate all the opened editors and add them to the recent file list
     for (const auto &editor : window->editors()) {
-        if (editor->isFile()) {
+        if (editor->isFile() && !sftpManager->isRemote(editor)) {
             recentFilesListManager->addFile(editor->getFilePath());
         }
     }

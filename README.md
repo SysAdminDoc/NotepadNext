@@ -86,6 +86,8 @@ The **View > Integrated Terminal** pane runs the platform shell through Qt's `QP
 
 **Search > Find in Files...** uses `ripgrep` (`rg`) from `PATH` to search a folder asynchronously. Literal and regular-expression modes, case sensitivity, hidden-file inclusion, live results, cancellation, and click-to-open line navigation are supported.
 
+**File > Open Remote File...** opens an SFTP document through the pinned libssh2 client. Password and private-key authentication are supported; credentials stay in memory, the document is mirrored in a temporary local file for editing, and Save uploads the edited contents back to the remote path. Known host keys are checked against an OpenSSH `known_hosts` file, with an explicit fingerprint confirmation for a new host.
+
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.

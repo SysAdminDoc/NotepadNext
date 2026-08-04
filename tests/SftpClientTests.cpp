@@ -1,0 +1,65 @@
+/*
+ * This file is part of Notepad Next.
+ * Copyright 2026 SysAdminDoc
+ */
+
+#include "SftpClient.h"
+
+#include <QtTest>
+
+class SftpClientTests final : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void normalizesRemotePaths();
+    void formatsDisplayNames();
+    void rejectsIncompleteConnections();
+    void acceptsPasswordConnection();
+};
+
+void SftpClientTests::normalizesRemotePaths()
+{
+    QCOMPARE(SftpClient::normalizedRemotePath(QStringLiteral("etc/../var/log/app.txt")),
+             QStringLiteral("/var/log/app.txt"));
+    QCOMPARE(SftpClient::normalizedRemotePath(QStringLiteral("\\srv\\file.txt")),
+             QStringLiteral("/srv/file.txt"));
+    QCOMPARE(SftpClient::normalizedRemotePath(QString()), QStringLiteral("/"));
+}
+
+void SftpClientTests::formatsDisplayNames()
+{
+    SftpClient::Connection connection;
+    connection.host = QStringLiteral("server.example");
+    connection.port = 2222;
+    connection.username = QStringLiteral("editor");
+    connection.remotePath = QStringLiteral("docs/readme.md");
+
+    QCOMPARE(SftpClient::displayName(connection),
+             QStringLiteral("sftp://editor@server.example:2222/docs/readme.md"));
+}
+
+void SftpClientTests::rejectsIncompleteConnections()
+{
+    SftpClient::Connection connection;
+    QString error;
+
+    QVERIFY(!SftpClient::validateConnection(connection, &error));
+    QVERIFY(error.contains(QStringLiteral("host"), Qt::CaseInsensitive));
+}
+
+void SftpClientTests::acceptsPasswordConnection()
+{
+    SftpClient::Connection connection;
+    connection.host = QStringLiteral("server.example");
+    connection.username = QStringLiteral("editor");
+    connection.password = QStringLiteral("transient-password");
+    connection.remotePath = QStringLiteral("/docs/readme.md");
+
+    QString error;
+    QVERIFY(SftpClient::validateConnection(connection, &error));
+    QVERIFY(error.isEmpty());
+}
+
+QTEST_MAIN(SftpClientTests)
+#include "SftpClientTests.moc"

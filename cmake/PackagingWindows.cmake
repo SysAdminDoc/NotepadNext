@@ -24,8 +24,11 @@ list(APPEND WINDEPLOYQT_ARGS "${PACKAGE_DIR}/NotepadNext.exe")
 
 file(GLOB EXTRA_DLLS "${EXTRA_DLL_DIR}/*.dll")
 
-# Define the package target
-add_custom_target(package
+# CPack creates a global `package` target when a dependency enables it. Keep
+# the application packaging target distinct so CMake can configure both.
+set(NOTEPADNEXT_PACKAGE_TARGET notepadnext-package)
+
+add_custom_target(${NOTEPADNEXT_PACKAGE_TARGET}
 	COMMENT "Packaging NotepadNext for distribution"
 	VERBATIM
 
@@ -54,7 +57,7 @@ add_custom_target(package
 
 set(ZIP_FILE "${CMAKE_BINARY_DIR}/NotepadNext-v${PROJECT_VERSION}.zip")
 add_custom_target(zip
-	DEPENDS package
+	DEPENDS ${NOTEPADNEXT_PACKAGE_TARGET}
 	COMMENT "Creating zip archive of NotepadNext package"
 	VERBATIM
 	COMMAND 7z a -tzip
@@ -66,7 +69,7 @@ add_custom_target(zip
 
 set(NSIS_SCRIPT "${CMAKE_SOURCE_DIR}/installer/installer.nsi")
 add_custom_target(installer
-	DEPENDS package
+	DEPENDS ${NOTEPADNEXT_PACKAGE_TARGET}
 	COMMENT "Building NSIS installer for NotepadNext"
 	VERBATIM
 	COMMAND makensis /V4 "${NSIS_SCRIPT}"

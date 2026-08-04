@@ -64,6 +64,24 @@ CPMAddPackage(
         "REGEX_BACKEND builtin"
 )
 
+if(WIN32)
+    set(NOTEPADNEXT_LIBSSH2_CRYPTO_BACKEND WinCNG)
+else()
+    set(NOTEPADNEXT_LIBSSH2_CRYPTO_BACKEND OpenSSL)
+endif()
+
+CPMAddPackage(
+    NAME libssh2
+    GITHUB_REPOSITORY libssh2/libssh2
+    GIT_TAG 3a735286108ad19e3b49c64ebcb66342f1f21df7
+    OPTIONS
+        "BUILD_STATIC_LIBS ON"
+        "BUILD_SHARED_LIBS OFF"
+        "BUILD_TESTING OFF"
+        "BUILD_EXAMPLES OFF"
+        "CRYPTO_BACKEND ${NOTEPADNEXT_LIBSSH2_CRYPTO_BACKEND}"
+)
+
 add_subdirectory(lua)
 add_subdirectory(scintilla)
 add_subdirectory(lexilla)

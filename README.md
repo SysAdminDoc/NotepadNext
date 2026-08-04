@@ -96,6 +96,8 @@ Binary files opened through **File > Open** are detected before text decoding an
 
 **View > Snippet Manager** stores reusable templates in the application profile. Use **Edit > Insert Snippet...** for selection-based insertion, or type a snippet trigger in the editor and press Tab. Bodies support `${1:default}` and `${2}` placeholders; Tab and Shift+Tab navigate them, and `${0}` marks the final caret position.
 
+Built-in docks and dialogs expose descriptive screen-reader names and keyboard guidance. The command palette accepts Up/Down navigation, file and workspace lists activate with Enter, and custom dock controls have an explicit Tab order.
+
 **File > Open Remote File...** opens an SFTP document through the pinned libssh2 client. Password and private-key authentication are supported; credentials stay in memory, the document is mirrored in a temporary local file for editing, and Save uploads the edited contents back to the remote path. Known host keys are checked against an OpenSSH `known_hosts` file, with an explicit fingerprint confirmation for a new host.
 
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.

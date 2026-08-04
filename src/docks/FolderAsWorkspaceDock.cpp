@@ -32,12 +32,15 @@ FolderAsWorkspaceDock::FolderAsWorkspaceDock(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    ui->treeView->setAccessibleName(tr("Folder workspace"));
+    ui->treeView->setAccessibleDescription(tr("Files and folders in the workspace. Press Enter to open a file."));
+
     ui->treeView->setModel(model);
     ui->treeView->header()->hideSection(1);
     ui->treeView->header()->hideSection(2);
     ui->treeView->header()->hideSection(3);
 
-    connect(ui->treeView, &QTreeView::doubleClicked, this, [=](const QModelIndex &index) {
+    connect(ui->treeView, &QTreeView::activated, this, [=](const QModelIndex &index) {
         if (!model->isDir(index)) {
             emit fileDoubleClicked(model->filePath(index));
         }

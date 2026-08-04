@@ -67,6 +67,12 @@ LanguageInspectorDock::LanguageInspectorDock(MainWindow *parent) :
     ui(new Ui::LanguageInspectorDock)
 {
     ui->setupUi(this);
+    ui->editLanguage->setAccessibleName(tr("Active language"));
+    ui->editLexer->setAccessibleName(tr("Active lexer"));
+    ui->tblProperties->setAccessibleName(tr("Lexer properties"));
+    ui->tblKeywords->setAccessibleName(tr("Lexer keywords"));
+    ui->tblStyles->setAccessibleName(tr("Lexer styles"));
+    ui->lblInfo->setAccessibleName(tr("Language inspector status"));
 
     SpinBoxDelegate *fontSizeDelegate = new SpinBoxDelegate(FontSizeSpinBoxFactory, this);
     ui->tblStyles->setItemDelegateForColumn(5, fontSizeDelegate);

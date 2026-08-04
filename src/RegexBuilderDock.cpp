@@ -73,31 +73,40 @@ RegexBuilderDock::RegexBuilderDock(MainWindow *window, QWidget *parent)
     auto *controls = new QGridLayout;
     controls->setContentsMargins(0, 0, 0, 0);
     controls->setColumnStretch(1, 1);
-    controls->addWidget(new QLabel(tr("Pattern:"), container), 0, 0);
+    auto *patternLabel = new QLabel(tr("Pattern:"), container);
 
     patternEdit = new QLineEdit(container);
     patternEdit->setObjectName(QStringLiteral("regexBuilderPattern"));
+    patternEdit->setAccessibleName(tr("Regular expression pattern"));
+    patternEdit->setAccessibleDescription(tr("Enter a Qt regular expression to inspect."));
     patternEdit->setPlaceholderText(tr("Enter a regular expression"));
+    patternLabel->setBuddy(patternEdit);
+    controls->addWidget(patternLabel, 0, 0);
     controls->addWidget(patternEdit, 0, 1, 1, 3);
 
     auto *analyzeButton = new QPushButton(tr("Analyze"), container);
     analyzeButton->setObjectName(QStringLiteral("regexBuilderAnalyze"));
+    analyzeButton->setAccessibleDescription(tr("Analyze the pattern and update its matches."));
     controls->addWidget(analyzeButton, 0, 4);
 
     auto *options = new QHBoxLayout;
     caseInsensitiveCheck = new QCheckBox(tr("Case insensitive"), container);
     caseInsensitiveCheck->setObjectName(QStringLiteral("regexBuilderCaseInsensitive"));
+    caseInsensitiveCheck->setAccessibleDescription(tr("Ignore letter case while matching."));
     options->addWidget(caseInsensitiveCheck);
     dotMatchesCheck = new QCheckBox(tr("Dot matches newline"), container);
     dotMatchesCheck->setObjectName(QStringLiteral("regexBuilderDotMatches"));
+    dotMatchesCheck->setAccessibleDescription(tr("Allow a dot in the pattern to match line breaks."));
     options->addWidget(dotMatchesCheck);
     options->addStretch();
 
     auto *useDocumentButton = new QPushButton(tr("Use Current Document"), container);
     useDocumentButton->setObjectName(QStringLiteral("regexBuilderUseDocument"));
+    useDocumentButton->setAccessibleDescription(tr("Load the active document as sample text."));
     options->addWidget(useDocumentButton);
     auto *useSelectionButton = new QPushButton(tr("Use Selection"), container);
     useSelectionButton->setObjectName(QStringLiteral("regexBuilderUseSelection"));
+    useSelectionButton->setAccessibleDescription(tr("Load the active selection as sample text."));
     options->addWidget(useSelectionButton);
 
     layout->addLayout(controls);
@@ -105,6 +114,8 @@ RegexBuilderDock::RegexBuilderDock(MainWindow *window, QWidget *parent)
 
     statusLabel = new QLabel(container);
     statusLabel->setObjectName(QStringLiteral("regexBuilderStatus"));
+    statusLabel->setAccessibleName(tr("Regex Builder status"));
+    statusLabel->setAccessibleDescription(tr("Pattern validation and match summary."));
     layout->addWidget(statusLabel);
 
     auto *sampleLabel = new QLabel(tr("Sample text — matched groups are highlighted below:"), container);
@@ -112,6 +123,9 @@ RegexBuilderDock::RegexBuilderDock(MainWindow *window, QWidget *parent)
     layout->addWidget(sampleLabel);
     sampleEdit = new QPlainTextEdit(container);
     sampleEdit->setObjectName(QStringLiteral("regexBuilderSample"));
+    sampleEdit->setAccessibleName(tr("Regular expression sample text"));
+    sampleEdit->setAccessibleDescription(tr("Text used to evaluate the regular expression."));
+    sampleLabel->setBuddy(sampleEdit);
     sampleEdit->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     sampleEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
     sampleEdit->setPlaceholderText(tr("Paste sample text or load the current document."));
@@ -119,6 +133,8 @@ RegexBuilderDock::RegexBuilderDock(MainWindow *window, QWidget *parent)
 
     matches = new QTreeWidget(container);
     matches->setObjectName(QStringLiteral("regexBuilderMatches"));
+    matches->setAccessibleName(tr("Regular expression matches"));
+    matches->setAccessibleDescription(tr("Matches and capture groups with their values and offsets."));
     matches->setColumnCount(4);
     matches->setHeaderLabels({tr("Capture"), tr("Value"), tr("Start"), tr("Length")});
     matches->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -138,6 +154,14 @@ RegexBuilderDock::RegexBuilderDock(MainWindow *window, QWidget *parent)
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 2);
     layout->addWidget(splitter, 1);
+
+    QWidget::setTabOrder(patternEdit, analyzeButton);
+    QWidget::setTabOrder(analyzeButton, caseInsensitiveCheck);
+    QWidget::setTabOrder(caseInsensitiveCheck, dotMatchesCheck);
+    QWidget::setTabOrder(dotMatchesCheck, useDocumentButton);
+    QWidget::setTabOrder(useDocumentButton, useSelectionButton);
+    QWidget::setTabOrder(useSelectionButton, sampleEdit);
+    QWidget::setTabOrder(sampleEdit, matches);
 
     setWidget(container);
     updateStatus(tr("Enter a pattern and sample text."));

@@ -90,6 +90,7 @@ SnippetManagerDock::SnippetManagerDock(MainWindow *window, QWidget *parent)
     snippetList = new QListWidget(container);
     snippetList->setObjectName(QStringLiteral("snippetList"));
     snippetList->setAccessibleName(tr("Available snippets"));
+    snippetList->setAccessibleDescription(tr("Select a snippet with the arrow keys and press Enter to insert it."));
     snippetList->setMinimumWidth(220);
 
     auto *editor = new QWidget(container);
@@ -120,6 +121,7 @@ SnippetManagerDock::SnippetManagerDock(MainWindow *window, QWidget *parent)
     bodyEdit = new QPlainTextEdit(editor);
     bodyEdit->setObjectName(QStringLiteral("snippetBody"));
     bodyEdit->setAccessibleName(tr("Snippet body"));
+    bodyEdit->setAccessibleDescription(tr("Snippet template. Use Ctrl+Tab to leave this editor; a Tab without Ctrl inserts indentation."));
     bodyEdit->setLineWrapMode(QPlainTextEdit::NoWrap);
     bodyEdit->setMinimumHeight(170);
     bodyEdit->setTabChangesFocus(false);
@@ -152,16 +154,32 @@ SnippetManagerDock::SnippetManagerDock(MainWindow *window, QWidget *parent)
 
     statusLabel = new QLabel(container);
     statusLabel->setObjectName(QStringLiteral("snippetStatus"));
+    statusLabel->setAccessibleName(tr("Snippet manager status"));
+    statusLabel->setAccessibleDescription(tr("Validation and insertion messages."));
     statusLabel->setWordWrap(true);
     layout->addWidget(statusLabel);
 
+    QWidget::setTabOrder(filterEdit, snippetList);
+    QWidget::setTabOrder(snippetList, nameEdit);
+    QWidget::setTabOrder(nameEdit, triggerEdit);
+    QWidget::setTabOrder(triggerEdit, bodyEdit);
+    QWidget::setTabOrder(bodyEdit, newButton);
+    QWidget::setTabOrder(newButton, saveButton);
+    QWidget::setTabOrder(saveButton, deleteButton);
+    QWidget::setTabOrder(deleteButton, insertButton);
+
     setWidget(container);
+
+    bodyEdit->installEventFilter(this);
 
     loadSettings();
     refreshList();
 
     connect(filterEdit, &QLineEdit::textChanged, this, &SnippetManagerDock::refreshList);
     connect(snippetList, &QListWidget::currentRowChanged, this, &SnippetManagerDock::selectSnippet);
+    connect(snippetList, &QListWidget::itemActivated, this, [this](QListWidgetItem *) {
+        insertSelectedSnippet();
+    });
     connect(newButton, &QPushButton::clicked, this, &SnippetManagerDock::newSnippet);
     connect(saveButton, &QPushButton::clicked, this, &SnippetManagerDock::saveSnippet);
     connect(deleteButton, &QPushButton::clicked, this, &SnippetManagerDock::deleteSnippet);
@@ -525,6 +543,15 @@ bool SnippetManagerDock::handleTab(ScintillaNext *editor, bool backwards)
 
 bool SnippetManagerDock::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched == bodyEdit && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        if (keyEvent->key() == Qt::Key_Tab
+            && keyEvent->modifiers().testFlag(Qt::ControlModifier)) {
+            focusNextPrevChild(!keyEvent->modifiers().testFlag(Qt::ShiftModifier));
+            return true;
+        }
+    }
+
     auto *editor = qobject_cast<ScintillaNext *>(watched);
     if (!editor || event->type() != QEvent::KeyPress) {
         return QDockWidget::eventFilter(watched, event);

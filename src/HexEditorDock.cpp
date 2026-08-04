@@ -94,12 +94,16 @@ HexEditorDock::HexEditorDock(MainWindow *window, QWidget *parent)
     auto *controls = new QHBoxLayout;
     auto *openButton = new QPushButton(tr("Open..."), container);
     openButton->setObjectName(QStringLiteral("hexEditorOpen"));
+    openButton->setAccessibleDescription(tr("Open a binary file in the hex editor."));
     auto *currentButton = new QPushButton(tr("Current File"), container);
     currentButton->setObjectName(QStringLiteral("hexEditorCurrent"));
+    currentButton->setAccessibleDescription(tr("Open the active document in the hex editor."));
     auto *reloadButton = new QPushButton(tr("Reload"), container);
     reloadButton->setObjectName(QStringLiteral("hexEditorReload"));
+    reloadButton->setAccessibleDescription(tr("Discard unsaved byte edits and reload the file."));
     auto *saveButton = new QPushButton(tr("Save"), container);
     saveButton->setObjectName(QStringLiteral("hexEditorSave"));
+    saveButton->setAccessibleDescription(tr("Save byte edits to the current file."));
     controls->addWidget(openButton);
     controls->addWidget(currentButton);
     controls->addWidget(reloadButton);
@@ -108,14 +112,19 @@ HexEditorDock::HexEditorDock(MainWindow *window, QWidget *parent)
     layout->addLayout(controls);
 
     statusLabel->setObjectName(QStringLiteral("hexEditorStatus"));
+    statusLabel->setAccessibleName(tr("Hex editor status"));
+    statusLabel->setAccessibleDescription(tr("File size, path, and modification state."));
     layout->addWidget(statusLabel);
 
     table->setObjectName(QStringLiteral("hexEditorTable"));
+    table->setAccessibleName(tr("Hex editor bytes"));
+    table->setAccessibleDescription(tr("Editable byte grid with offset and ASCII columns. Use arrow keys and Tab to move between bytes."));
     table->setModel(model);
     table->setItemDelegate(new HexByteDelegate(table));
     table->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     table->setSelectionBehavior(QAbstractItemView::SelectItems);
     table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setTabKeyNavigation(true);
     table->setAlternatingRowColors(true);
     table->setShowGrid(true);
     table->verticalHeader()->setDefaultSectionSize(table->fontMetrics().height() + 6);
@@ -126,6 +135,11 @@ HexEditorDock::HexEditorDock(MainWindow *window, QWidget *parent)
     }
     table->horizontalHeader()->setSectionResizeMode(17, QHeaderView::Stretch);
     layout->addWidget(table, 1);
+
+    QWidget::setTabOrder(openButton, currentButton);
+    QWidget::setTabOrder(currentButton, reloadButton);
+    QWidget::setTabOrder(reloadButton, saveButton);
+    QWidget::setTabOrder(saveButton, table);
 
     setWidget(container);
     updateStatus();

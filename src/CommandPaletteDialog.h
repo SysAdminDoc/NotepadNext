@@ -19,6 +19,7 @@ class QAction;
 class QListWidget;
 class QListWidgetItem;
 class QLineEdit;
+class QEvent;
 
 class CommandPaletteDialog final : public QDialog
 {
@@ -29,6 +30,7 @@ public:
 
 protected:
     void showEvent(QShowEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void updateResults();

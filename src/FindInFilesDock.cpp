@@ -52,40 +52,54 @@ FindInFilesDock::FindInFilesDock(QWidget *parent)
     controls->setContentsMargins(0, 0, 0, 0);
     controls->setColumnStretch(1, 1);
 
-    controls->addWidget(new QLabel(tr("Find:"), container), 0, 0);
+    auto *patternLabel = new QLabel(tr("Find:"), container);
     patternEdit = new QLineEdit(container);
     patternEdit->setObjectName(QStringLiteral("findInFilesPattern"));
+    patternEdit->setAccessibleName(tr("Find pattern"));
+    patternEdit->setAccessibleDescription(tr("Enter text or a regular expression to search for."));
     patternEdit->setPlaceholderText(tr("Text or regular expression"));
+    patternLabel->setBuddy(patternEdit);
+    controls->addWidget(patternLabel, 0, 0);
     controls->addWidget(patternEdit, 0, 1, 1, 3);
 
-    controls->addWidget(new QLabel(tr("Folder:"), container), 1, 0);
+    auto *pathLabel = new QLabel(tr("Folder:"), container);
     pathEdit = new QLineEdit(container);
     pathEdit->setObjectName(QStringLiteral("findInFilesPath"));
+    pathEdit->setAccessibleName(tr("Search folder"));
+    pathEdit->setAccessibleDescription(tr("Folder whose files will be searched."));
     pathEdit->setPlaceholderText(tr("Folder to search"));
+    pathLabel->setBuddy(pathEdit);
+    controls->addWidget(pathLabel, 1, 0);
     controls->addWidget(pathEdit, 1, 1);
 
     auto *browseButton = new QPushButton(tr("Browse..."), container);
     browseButton->setObjectName(QStringLiteral("findInFilesBrowse"));
+    browseButton->setAccessibleDescription(tr("Choose the folder to search."));
     controls->addWidget(browseButton, 1, 2);
 
     searchButton = new QPushButton(tr("Search"), container);
     searchButton->setObjectName(QStringLiteral("findInFilesSearch"));
+    searchButton->setAccessibleDescription(tr("Start searching the selected folder."));
     controls->addWidget(searchButton, 1, 3);
 
     auto *options = new QHBoxLayout();
     regexCheck = new QCheckBox(tr("Regular expression"), container);
     regexCheck->setObjectName(QStringLiteral("findInFilesRegex"));
+    regexCheck->setAccessibleDescription(tr("Interpret the search pattern as a regular expression."));
     options->addWidget(regexCheck);
     caseSensitiveCheck = new QCheckBox(tr("Case sensitive"), container);
     caseSensitiveCheck->setObjectName(QStringLiteral("findInFilesCaseSensitive"));
+    caseSensitiveCheck->setAccessibleDescription(tr("Match uppercase and lowercase letters exactly."));
     caseSensitiveCheck->setChecked(true);
     options->addWidget(caseSensitiveCheck);
     hiddenCheck = new QCheckBox(tr("Include hidden files"), container);
     hiddenCheck->setObjectName(QStringLiteral("findInFilesHidden"));
+    hiddenCheck->setAccessibleDescription(tr("Include hidden files and folders in the search."));
     options->addWidget(hiddenCheck);
     options->addStretch();
     stopButton = new QPushButton(tr("Stop"), container);
     stopButton->setObjectName(QStringLiteral("findInFilesStop"));
+    stopButton->setAccessibleDescription(tr("Cancel the active search."));
     stopButton->setEnabled(false);
     options->addWidget(stopButton);
 
@@ -94,10 +108,14 @@ FindInFilesDock::FindInFilesDock(QWidget *parent)
 
     statusLabel = new QLabel(container);
     statusLabel->setObjectName(QStringLiteral("findInFilesStatus"));
+    statusLabel->setAccessibleName(tr("Find in Files status"));
+    statusLabel->setAccessibleDescription(tr("Search progress and result summary."));
     layout->addWidget(statusLabel);
 
     results = new QTreeWidget(container);
     results->setObjectName(QStringLiteral("findInFilesResults"));
+    results->setAccessibleName(tr("Find in Files results"));
+    results->setAccessibleDescription(tr("Search matches. Use the arrow keys and Enter to open a result."));
     results->setColumnCount(4);
     results->setHeaderLabels({tr("File"), tr("Line"), tr("Column"), tr("Match")});
     results->setRootIsDecorated(false);
@@ -110,6 +128,15 @@ FindInFilesDock::FindInFilesDock(QWidget *parent)
     results->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     results->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     layout->addWidget(results, 1);
+
+    QWidget::setTabOrder(patternEdit, pathEdit);
+    QWidget::setTabOrder(pathEdit, browseButton);
+    QWidget::setTabOrder(browseButton, searchButton);
+    QWidget::setTabOrder(searchButton, regexCheck);
+    QWidget::setTabOrder(regexCheck, caseSensitiveCheck);
+    QWidget::setTabOrder(caseSensitiveCheck, hiddenCheck);
+    QWidget::setTabOrder(hiddenCheck, stopButton);
+    QWidget::setTabOrder(stopButton, results);
 
     setWidget(container);
     setSearchPath(QDir::homePath());

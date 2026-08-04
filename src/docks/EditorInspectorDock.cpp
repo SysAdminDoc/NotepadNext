@@ -31,6 +31,8 @@ EditorInspectorDock::EditorInspectorDock(MainWindow *parent) :
     ui(new Ui::EditorInspectorDock)
 {
     ui->setupUi(this);
+    ui->treeWidget->setAccessibleName(tr("Editor inspector"));
+    ui->treeWidget->setAccessibleDescription(tr("Read-only details about the active editor, document, selections, and view."));
 
     QTreeWidgetItem *positionInfo = new QTreeWidgetItem(ui->treeWidget);
     positionInfo->setText(0, tr("Position Information"));

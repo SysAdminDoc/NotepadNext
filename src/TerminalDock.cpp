@@ -40,6 +40,8 @@ TerminalDock::TerminalDock(QWidget *parent)
 
     output = new QPlainTextEdit(container);
     output->setObjectName(QStringLiteral("terminalOutput"));
+    output->setAccessibleName(tr("Terminal output"));
+    output->setAccessibleDescription(tr("Read-only output from the shell."));
     output->setReadOnly(true);
     output->setLineWrapMode(QPlainTextEdit::NoWrap);
     output->setMaximumBlockCount(10000);
@@ -53,32 +55,44 @@ TerminalDock::TerminalDock(QWidget *parent)
 
     workingDirectoryLabel = new QLabel(toolbar);
     workingDirectoryLabel->setObjectName(QStringLiteral("terminalWorkingDirectory"));
+    workingDirectoryLabel->setAccessibleName(tr("Terminal working directory"));
+    workingDirectoryLabel->setAccessibleDescription(tr("Directory used when the shell starts."));
     workingDirectoryLabel->setTextInteractionFlags(Qt::TextSelectableByMouse | Qt::TextSelectableByKeyboard);
     toolbarLayout->addWidget(workingDirectoryLabel, 1);
 
     auto *clearButton = new QPushButton(tr("Clear"), toolbar);
     clearButton->setObjectName(QStringLiteral("terminalClearButton"));
     clearButton->setToolTip(tr("Clear terminal output"));
+    clearButton->setAccessibleDescription(tr("Clear all text from terminal output."));
     toolbarLayout->addWidget(clearButton);
 
     auto *restartButton = new QPushButton(tr("Restart"), toolbar);
     restartButton->setObjectName(QStringLiteral("terminalRestartButton"));
     restartButton->setToolTip(tr("Restart the shell"));
+    restartButton->setAccessibleDescription(tr("Stop and restart the shell process."));
     toolbarLayout->addWidget(restartButton);
 
     auto *stopButton = new QPushButton(tr("Stop"), toolbar);
     stopButton->setObjectName(QStringLiteral("terminalStopButton"));
     stopButton->setToolTip(tr("Stop the shell"));
+    stopButton->setAccessibleDescription(tr("Stop the running shell process."));
     toolbarLayout->addWidget(stopButton);
 
     layout->addWidget(toolbar);
 
     input = new QLineEdit(container);
     input->setObjectName(QStringLiteral("terminalInput"));
+    input->setAccessibleName(tr("Terminal command"));
+    input->setAccessibleDescription(tr("Enter a shell command and press Enter to run it."));
     input->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     input->setPlaceholderText(tr("Enter a command and press Enter"));
     input->setClearButtonEnabled(true);
     layout->addWidget(input);
+
+    QWidget::setTabOrder(output, clearButton);
+    QWidget::setTabOrder(clearButton, restartButton);
+    QWidget::setTabOrder(restartButton, stopButton);
+    QWidget::setTabOrder(stopButton, input);
 
     setWidget(container);
 

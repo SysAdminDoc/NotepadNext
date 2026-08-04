@@ -160,25 +160,33 @@ ScriptConsoleDock::ScriptConsoleDock(NotepadNextApplication *app, QWidget *paren
     setAllowedAreas(Qt::BottomDockWidgetArea | Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
     output->setObjectName(QStringLiteral("scriptConsoleOutput"));
+    output->setAccessibleName(tr("JavaScript console output"));
+    output->setAccessibleDescription(tr("Read-only output from JavaScript execution."));
     output->setReadOnly(true);
     output->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     output->setMaximumBlockCount(2000);
 
     input->setObjectName(QStringLiteral("scriptConsoleInput"));
+    input->setAccessibleName(tr("JavaScript console input"));
+    input->setAccessibleDescription(tr("Enter JavaScript to run against the active document. Press Ctrl+Return to run."));
     input->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     input->setPlaceholderText(tr("Use notepad.text(), notepad.setText(...), and notepad.log(...)."));
     input->setMinimumHeight(90);
 
     auto *languageLabel = new QLabel(tr("Engine: %1").arg(languageDescription()), this);
     languageLabel->setObjectName(QStringLiteral("scriptConsoleEngineLabel"));
+    languageLabel->setAccessibleName(tr("JavaScript engine"));
 
     auto *runButton = new QPushButton(tr("Run"), this);
     runButton->setObjectName(QStringLiteral("scriptConsoleRun"));
+    runButton->setAccessibleDescription(tr("Run the JavaScript in the input editor."));
     runButton->setDefault(true);
     auto *runFileButton = new QPushButton(tr("Run Script File..."), this);
     runFileButton->setObjectName(QStringLiteral("scriptConsoleRunFile"));
+    runFileButton->setAccessibleDescription(tr("Choose and run a JavaScript file."));
     auto *clearButton = new QPushButton(tr("Clear"), this);
     clearButton->setObjectName(QStringLiteral("scriptConsoleClear"));
+    clearButton->setAccessibleDescription(tr("Clear JavaScript console output."));
 
     auto *controls = new QHBoxLayout;
     controls->addWidget(languageLabel);
@@ -192,6 +200,11 @@ ScriptConsoleDock::ScriptConsoleDock(NotepadNextApplication *app, QWidget *paren
     layout->addLayout(controls);
     layout->addWidget(input);
     layout->setContentsMargins(4, 4, 4, 4);
+
+    QWidget::setTabOrder(output, runFileButton);
+    QWidget::setTabOrder(runFileButton, clearButton);
+    QWidget::setTabOrder(clearButton, runButton);
+    QWidget::setTabOrder(runButton, input);
 
     auto *container = new QWidget(this);
     container->setLayout(layout);

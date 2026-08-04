@@ -97,6 +97,8 @@ LuaConsoleDock::LuaConsoleDock(LuaState *l, QWidget *parent) :
     ui->setupUi(this);
 
     output = new ScintillaNext(Q_NULLPTR, this);
+    output->setAccessibleName(tr("Lua console output"));
+    output->setAccessibleDescription(tr("Read-only output from Lua commands."));
 
     QFrame *line;
     line = new QFrame(this);
@@ -104,6 +106,8 @@ LuaConsoleDock::LuaConsoleDock(LuaState *l, QWidget *parent) :
     line->setFrameShadow(QFrame::Sunken);
 
     input = new ScintillaNext(Q_NULLPTR, this);
+    input->setAccessibleName(tr("Lua console input"));
+    input->setAccessibleDescription(tr("Enter a Lua command and press the console run shortcut."));
 
     QVBoxLayout *layout = new QVBoxLayout;
     layout->addWidget(output);

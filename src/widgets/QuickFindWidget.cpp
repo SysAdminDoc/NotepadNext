@@ -34,6 +34,17 @@ QuickFindWidget::QuickFindWidget(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    ui->lineEdit->setAccessibleName(tr("Quick find text"));
+    ui->lineEdit->setAccessibleDescription(tr("Find text in the active document. Press Enter to move to the next match."));
+    ui->buttonMatchCase->setAccessibleName(tr("Match case"));
+    ui->buttonWholeWord->setAccessibleName(tr("Match whole word"));
+    ui->buttonRegexp->setAccessibleName(tr("Use regular expression"));
+    ui->lblInfo->setAccessibleName(tr("Quick find match status"));
+
+    QWidget::setTabOrder(ui->lineEdit, ui->buttonMatchCase);
+    QWidget::setTabOrder(ui->buttonMatchCase, ui->buttonWholeWord);
+    QWidget::setTabOrder(ui->buttonWholeWord, ui->buttonRegexp);
+
     // Move the focus to the line edit widget
     setFocusProxy(ui->lineEdit);
 

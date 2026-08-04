@@ -14,6 +14,7 @@
 
 #include <QAction>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
@@ -49,10 +50,19 @@ CommandPaletteDialog::CommandPaletteDialog(QWidget *parent, const QList<QAction 
     layout->addWidget(queryEdit);
     layout->addWidget(results);
 
+    queryEdit->setObjectName(QStringLiteral("commandPaletteQuery"));
+    queryEdit->setAccessibleName(tr("Command search"));
+    queryEdit->setAccessibleDescription(tr("Type a command name or shortcut. Use Up and Down to choose a result, then press Enter."));
     queryEdit->setPlaceholderText(tr("Type a command name or shortcut"));
+    prompt->setBuddy(queryEdit);
+
+    results->setObjectName(QStringLiteral("commandPaletteResults"));
+    results->setAccessibleName(tr("Command results"));
+    results->setAccessibleDescription(tr("Matching commands. Press Enter to run the selected command."));
     results->setSelectionMode(QAbstractItemView::SingleSelection);
     results->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     results->setAlternatingRowColors(true);
+    queryEdit->installEventFilter(this);
 
     connect(queryEdit, &QLineEdit::textChanged, this, &CommandPaletteDialog::updateResults);
     connect(queryEdit, &QLineEdit::returnPressed, this, &CommandPaletteDialog::triggerCurrent);
@@ -61,6 +71,30 @@ CommandPaletteDialog::CommandPaletteDialog(QWidget *parent, const QList<QAction 
     });
 
     updateResults();
+}
+
+bool CommandPaletteDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == queryEdit && event->type() == QEvent::KeyPress) {
+        auto *keyEvent = static_cast<QKeyEvent *>(event);
+        const bool moveDown = keyEvent->key() == Qt::Key_Down || keyEvent->key() == Qt::Key_PageDown;
+        const bool moveUp = keyEvent->key() == Qt::Key_Up || keyEvent->key() == Qt::Key_PageUp;
+        if ((moveDown || moveUp) && results->count() > 0
+            && !keyEvent->modifiers().testFlag(Qt::ControlModifier)
+            && !keyEvent->modifiers().testFlag(Qt::AltModifier)
+            && !keyEvent->modifiers().testFlag(Qt::MetaModifier)) {
+            const int currentRow = qMax(0, results->currentRow());
+            const int step = keyEvent->key() == Qt::Key_PageDown || keyEvent->key() == Qt::Key_PageUp ? 5 : 1;
+            const int nextRow = moveDown
+                ? qMin(results->count() - 1, currentRow + step)
+                : qMax(0, currentRow - step);
+            results->setCurrentRow(nextRow);
+            results->setFocus(Qt::OtherFocusReason);
+            return true;
+        }
+    }
+
+    return QDialog::eventFilter(watched, event);
 }
 
 void CommandPaletteDialog::showEvent(QShowEvent *event)

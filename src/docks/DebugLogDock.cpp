@@ -35,6 +35,8 @@ DebugLogDock::DebugLogDock(QWidget *parent) :
     ui(new Ui::DebugLogDock)
 {
     ui->setupUi(this);
+    ui->txtDebugOutput->setAccessibleName(tr("Debug log output"));
+    ui->txtDebugOutput->setAccessibleDescription(tr("Read-only diagnostic messages from Notepad Next."));
 
     output = ui->txtDebugOutput;
     DebugManager::addMessageHandler(debugLogDockMessageHandler);

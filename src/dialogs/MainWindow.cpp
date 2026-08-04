@@ -942,6 +942,8 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     ui->pushExitFullScreen->setParent(this); // This is important
+    ui->pushExitFullScreen->setAccessibleName(tr("Exit full screen"));
+    ui->pushExitFullScreen->setAccessibleDescription(tr("Return the main window to its normal view."));
     ui->pushExitFullScreen->setVisible(false);
     connect(ui->pushExitFullScreen, &QPushButton::clicked, ui->actionFullScreen, &QAction::trigger);
     connect(ui->actionFullScreen, &QAction::triggered, this, [this](bool b) {
@@ -2702,12 +2704,21 @@ void MainWindow::addEditor(ScintillaNext *editor)
 
     detectLanguage(editor);
 
+    editor->setAccessibleName(tr("Editor: %1").arg(editor->getName()));
+    editor->setAccessibleDescription(tr("Text editor for %1. Use the editor keyboard shortcuts to move, select, and edit text.")
+                                     .arg(editor->getName()));
+
     // These should only ever occur for the focused editor??
     // TODO: look at editor inspector as an example to ensure updates are only coming from one editor.
     // Can save the connection objects and disconnected from them and only connect to the editor as it is activated.
     connect(editor, &ScintillaNext::savePointChanged, this, [=, this]() { updateSaveStatusBasedUi(editor); });
     connect(editor, &ScintillaNext::renamed, this, [= ,this]() { detectLanguage(editor); });
-    connect(editor, &ScintillaNext::renamed, this, [=, this]() { updateFileStatusBasedUi(editor); });
+    connect(editor, &ScintillaNext::renamed, this, [=, this]() {
+        editor->setAccessibleName(tr("Editor: %1").arg(editor->getName()));
+        editor->setAccessibleDescription(tr("Text editor for %1. Use the editor keyboard shortcuts to move, select, and edit text.")
+                                         .arg(editor->getName()));
+        updateFileStatusBasedUi(editor);
+    });
     connect(editor, &ScintillaNext::updateUi, this, &MainWindow::updateDocumentBasedUi);
 
     // Watch for any zoom events (Ctrl+Scroll or pinch-to-zoom (Qt translates it as Ctrl+Scroll)) so that the event

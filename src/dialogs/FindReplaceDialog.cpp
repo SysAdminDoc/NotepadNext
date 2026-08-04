@@ -54,6 +54,11 @@ FindReplaceDialog::FindReplaceDialog(ISearchResultsHandler *searchResults, MainW
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     ui->setupUi(this);
 
+    ui->comboFind->setAccessibleName(tr("Find text"));
+    ui->comboFind->setAccessibleDescription(tr("Text or pattern to find in the active document."));
+    ui->comboReplace->setAccessibleName(tr("Replace text"));
+    ui->comboReplace->setAccessibleDescription(tr("Text that replaces the selected match."));
+
     // Get the current editor, and keep up the reference
     setEditor(window->currentEditor());
     connect(window, &MainWindow::editorActivated, this, &FindReplaceDialog::setEditor);

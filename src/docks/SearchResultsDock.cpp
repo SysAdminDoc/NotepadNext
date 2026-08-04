@@ -37,6 +37,10 @@ SearchResultsDock::SearchResultsDock(QWidget *parent) :
     ui(new Ui::SearchResultsDock)
 {
     ui->setupUi(this);
+    ui->btnCopyResults->setAccessibleName(tr("Copy search results"));
+    ui->btnCopyResults->setAccessibleDescription(tr("Copy all visible search results to the clipboard."));
+    ui->treeWidget->setAccessibleName(tr("Search results"));
+    ui->treeWidget->setAccessibleDescription(tr("Search results grouped by document. Use the arrow keys and Enter to open a result."));
 
     // Close the results when escape is pressed
     new QShortcut(QKeySequence::Cancel, this, this, &SearchResultsDock::close, Qt::WidgetWithChildrenShortcut);

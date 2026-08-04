@@ -109,6 +109,35 @@ target_link_libraries(NotepadNextSnippetEngineTests
 
 add_test(NAME NotepadNextSnippetEngineTests COMMAND NotepadNextSnippetEngineTests)
 
+qt_add_executable(NotepadNextAccessibilityTests
+    AccessibilityTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/CommandPaletteDialog.cpp
+    ${CMAKE_SOURCE_DIR}/src/CommandPaletteFilter.cpp
+    ${CMAKE_SOURCE_DIR}/src/FindInFilesDock.cpp
+    ${CMAKE_SOURCE_DIR}/src/RipgrepSearch.cpp
+    ${CMAKE_SOURCE_DIR}/src/TerminalDock.cpp
+    ${CMAKE_SOURCE_DIR}/src/TerminalProcess.cpp
+)
+
+target_include_directories(NotepadNextAccessibilityTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/dialogs
+)
+
+target_link_libraries(NotepadNextAccessibilityTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextAccessibilityTests COMMAND NotepadNextAccessibilityTests)
+set_tests_properties(NotepadNextAccessibilityTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 qt_add_executable(NotepadNextLanguageDefinitionTests
     LanguageDefinitionTests.cpp
     ${CMAKE_SOURCE_DIR}/src/LuaState.cpp

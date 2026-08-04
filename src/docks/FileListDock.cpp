@@ -33,6 +33,10 @@ FileListDock::FileListDock(MainWindow *parent) :
     qInfo(Q_FUNC_INFO);
 
     ui->setupUi(this);
+    ui->btnSettings->setAccessibleName(tr("File list settings"));
+    ui->btnSettings->setAccessibleDescription(tr("Open file-list sorting options."));
+    ui->listWidget->setAccessibleName(tr("Open documents"));
+    ui->listWidget->setAccessibleDescription(tr("Open documents. Use the arrow keys and Enter to activate a document."));
     ui->btnSettings->addAction(ui->actionSortbyFileName);
 
     // Set the initial state
@@ -80,6 +84,7 @@ FileListDock::FileListDock(MainWindow *parent) :
     });
 
     connect(ui->listWidget, &QListWidget::itemClicked, this, &FileListDock::itemClicked);
+    connect(ui->listWidget, &QListWidget::itemActivated, this, &FileListDock::itemClicked);
 }
 
 FileListDock::~FileListDock()

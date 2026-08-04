@@ -46,6 +46,7 @@ CREATE_SETTING(Gui, ShowTabBar, showTabBar, bool, true)
 CREATE_SETTING(Gui, ShowStatusBar, showStatusBar, bool, true)
 CREATE_SETTING(Gui, CenterSearchDialog, centerSearchDialog, bool, true)
 CREATE_SETTING(Gui, Theme, theme, int, 0)
+CREATE_SETTING(Gui, IconTheme, iconTheme, int, 0)
 
 CREATE_SETTING(Gui, TabsClosable, tabsClosable, bool, true)
 CREATE_SETTING(Gui, ExitOnLastTabClosed, exitOnLastTabClosed, bool, false)

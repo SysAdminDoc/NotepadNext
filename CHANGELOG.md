@@ -26,6 +26,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: LSP client support for clangd, pyright-langserver, rust-analyzer, and gopls with full-document synchronization, diagnostics squiggles, hover call tips, and F12 go-to-definition navigation.
 - Added: Headless JSON-RPC framing and fake-server coverage for LSP initialization, document changes, diagnostics, hover, and definition responses.
 - Added: Persisted Fusion, Material, and Fluent theme variants with immediate View-menu switching, palette/QSS styling, and custom CSS overrides.
+- Added: Selectable Default, Nord, Catppuccin, and GitHub Dark icon packs with semantic accent colors and transparency-preserving recoloring.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

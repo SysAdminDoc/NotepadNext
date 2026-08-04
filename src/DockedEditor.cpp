@@ -190,16 +190,11 @@ void DockedEditor::addEditor(ScintillaNext *editor)
     }
 
     // Set the icon
-    if (editor->readOnly()) {
-        dockWidget->tabWidget()->setIcon(QIcon(":/icons/readonly.png"));
-    }
-    else {
-        dockWidget->tabWidget()->setIcon(QIcon(editor->canSaveToDisk() ? ":/icons/unsaved.png" : ":/icons/saved.png"));
-        connect(editor, &ScintillaNext::savePointChanged, dockWidget, [=](bool dirty) {
+    updateDockIcon(editor, dockWidget);
+    if (!editor->readOnly()) {
+        connect(editor, &ScintillaNext::savePointChanged, dockWidget, [this, editor, dockWidget](bool dirty) {
             Q_UNUSED(dirty)
-            const bool actuallyDirty = editor->canSaveToDisk();
-            const QString iconPath = actuallyDirty ? ":/icons/unsaved.png" : ":/icons/saved.png";
-            dockWidget->tabWidget()->setIcon(QIcon(iconPath));
+            updateDockIcon(editor, dockWidget);
         });
     }
 
@@ -212,6 +207,37 @@ void DockedEditor::addEditor(ScintillaNext *editor)
     latestDockArea = dockManager->addDockWidget(ads::CenterDockWidgetArea, dockWidget, currentDockArea());
 
     emit editorAdded(editor);
+}
+
+void DockedEditor::setIconTheme(IconThemeManager::Pack pack)
+{
+    iconTheme = pack;
+    for (ads::CDockWidget *dockWidget : dockManager->dockWidgetsMap()) {
+        auto *editor = qobject_cast<ScintillaNext *>(dockWidget->widget());
+        if (editor) {
+            updateDockIcon(editor, dockWidget);
+        }
+    }
+}
+
+void DockedEditor::updateDockIcon(ScintillaNext *editor, ads::CDockWidget *dockWidget)
+{
+    QString iconPath;
+    QString semanticKey;
+    if (editor->readOnly()) {
+        iconPath = QStringLiteral(":/icons/readonly.png");
+        semanticKey = QStringLiteral("readonly");
+    }
+    else if (editor->canSaveToDisk()) {
+        iconPath = QStringLiteral(":/icons/unsaved.png");
+        semanticKey = QStringLiteral("unsaved");
+    }
+    else {
+        iconPath = QStringLiteral(":/icons/saved.png");
+        semanticKey = QStringLiteral("saved");
+    }
+
+    dockWidget->tabWidget()->setIcon(IconThemeManager::recolor(QIcon(iconPath), iconTheme, semanticKey));
 }
 
 void DockedEditor::editorRenamed(ScintillaNext *editor)

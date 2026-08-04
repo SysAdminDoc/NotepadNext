@@ -23,6 +23,7 @@
 #include <QObject>
 
 #include "DockManager.h"
+#include "IconThemeManager.h"
 #include "ScintillaNext.h"
 
 class DockedEditor : public QObject
@@ -33,6 +34,7 @@ private:
     ads::CDockManager* dockManager = Q_NULLPTR;
     ads::CDockAreaWidget* latestDockArea = Q_NULLPTR;
     ScintillaNext *currentEditor = Q_NULLPTR;
+    IconThemeManager::Pack iconTheme = IconThemeManager::Pack::Default;
 
 public:
     explicit DockedEditor(QWidget *parent);
@@ -46,6 +48,8 @@ public:
 
     int count() const;
 
+    void setIconTheme(IconThemeManager::Pack pack);
+
     void splitToRight(ScintillaNext *editor);
     void splitToBottom(ScintillaNext *editor);
 
@@ -55,6 +59,9 @@ public slots:
 private slots:
     void dockWidgetCloseRequested();
     void editorRenamed(ScintillaNext *editor);
+
+private:
+    void updateDockIcon(ScintillaNext *editor, ads::CDockWidget *dockWidget);
 
 signals:
     void editorAdded(ScintillaNext *editor);

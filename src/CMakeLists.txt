@@ -22,6 +22,7 @@ qt_add_executable(NotepadNext
 	HtmlConverter.h
 	IFaceTable.h
 	IFaceTableMixer.h
+	IconThemeManager.h
 	ISearchResultsHandler.h
 	LanguageStylesModel.h
 	LspClient.h
@@ -77,6 +78,7 @@ qt_add_executable(NotepadNext
 	HtmlConverter.cpp
 	IFaceTable.cpp
 	IFaceTableMixer.cpp
+	IconThemeManager.cpp
 	LanguageStylesModel.cpp
 	LspClient.cpp
 	LspManager.cpp

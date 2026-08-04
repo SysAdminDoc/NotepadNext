@@ -53,6 +53,7 @@
 
 #include "NotepadNextApplication.h"
 #include "ApplicationSettings.h"
+#include "IconThemeManager.h"
 #include "ThemeManager.h"
 
 #include "ScintillaNext.h"
@@ -107,6 +108,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     ui->setupUi(this);
 
     setupThemeMenu();
+    setupIconThemeMenu();
     applyCustomShortcuts();
 
     auto *commandPaletteAction = new QAction(tr("Command Palette"), this);
@@ -949,6 +951,8 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
             connect(action, &QAction::triggered, this, [this, editor]() { switchToEditor(editor); });
         }
+
+        applyIconTheme();
     });
 
 #ifdef Q_OS_WIN
@@ -1909,10 +1913,87 @@ void MainWindow::applyStyleSheet()
     }
 
     setStyleSheet(sheet);
+    applyIconTheme();
 
     if (themeActionGroup) {
         for (QAction *action : themeActionGroup->actions()) {
             action->setChecked(action->data().toInt() == ThemeManager::value(variant));
+        }
+    }
+}
+
+void MainWindow::setupIconThemeMenu()
+{
+    iconThemeActionGroup = new QActionGroup(this);
+    iconThemeActionGroup->setExclusive(true);
+
+    QMenu *iconThemeMenu = ui->menuView->addMenu(tr("Icon Theme"));
+    iconThemeMenu->setObjectName(QStringLiteral("menuIconTheme"));
+
+    const QList<QPair<IconThemeManager::Pack, QString>> packs = {
+        {IconThemeManager::Pack::Default, tr("Default")},
+        {IconThemeManager::Pack::Nord, tr("Nord")},
+        {IconThemeManager::Pack::Catppuccin, tr("Catppuccin")},
+        {IconThemeManager::Pack::GitHubDark, tr("GitHub Dark")},
+    };
+
+    for (const auto &[pack, label] : packs) {
+        auto *action = new QAction(label, this);
+        action->setObjectName(QStringLiteral("actionIconTheme") + IconThemeManager::name(pack).remove(QLatin1Char(' ')));
+        action->setCheckable(true);
+        action->setData(IconThemeManager::value(pack));
+        iconThemeActionGroup->addAction(action);
+        iconThemeMenu->addAction(action);
+
+        connect(action, &QAction::triggered, this, [this, action]() {
+            app->getSettings()->setIconTheme(action->data().toInt());
+        });
+    }
+
+    connect(app->getSettings(), &ApplicationSettings::iconThemeChanged, this, &MainWindow::applyIconTheme);
+}
+
+void MainWindow::applyIconTheme()
+{
+    const IconThemeManager::Pack pack = IconThemeManager::packFromValue(app->getSettings()->iconTheme());
+    if (dockedEditor) {
+        dockedEditor->setIconTheme(pack);
+    }
+
+    for (QAction *action : findChildren<QAction *>()) {
+        if (!originalActionIcons.contains(action)) {
+            originalActionIcons.insert(action, action->icon());
+            connect(action, &QObject::destroyed, this, [this](QObject *object) {
+                originalActionIcons.remove(static_cast<QAction *>(object));
+            });
+        }
+
+        const QIcon &source = originalActionIcons[action];
+        if (!source.isNull()) {
+            action->setIcon(IconThemeManager::recolor(source, pack, action->objectName()));
+        }
+    }
+
+    for (QToolButton *button : findChildren<QToolButton *>()) {
+        if (button->defaultAction()) {
+            continue;
+        }
+        if (!originalToolButtonIcons.contains(button)) {
+            originalToolButtonIcons.insert(button, button->icon());
+            connect(button, &QObject::destroyed, this, [this](QObject *object) {
+                originalToolButtonIcons.remove(static_cast<QToolButton *>(object));
+            });
+        }
+
+        const QIcon &source = originalToolButtonIcons[button];
+        if (!source.isNull()) {
+            button->setIcon(IconThemeManager::recolor(source, pack, button->objectName()));
+        }
+    }
+
+    if (iconThemeActionGroup) {
+        for (QAction *action : iconThemeActionGroup->actions()) {
+            action->setChecked(action->data().toInt() == IconThemeManager::value(pack));
         }
     }
 }

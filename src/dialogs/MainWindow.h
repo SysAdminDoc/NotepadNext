@@ -23,6 +23,9 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QActionGroup>
+#include <QHash>
+#include <QIcon>
+#include <QToolButton>
 
 #include "DockedEditor.h"
 
@@ -178,6 +181,8 @@ private:
     void showSaveErrorMessage(ScintillaNext *editor, QFileDevice::FileError error);
     void showEditorZoomLevelIndicator();
     void setupThemeMenu();
+    void setupIconThemeMenu();
+    void applyIconTheme();
 
     enum class UserSaveAction { SaveAll, DiscardAll, Cancel };
     UserSaveAction promptForSave(const QVector<ScintillaNext *> &editors);
@@ -189,6 +194,9 @@ private:
 
     QActionGroup *languageActionGroup;
     QActionGroup *themeActionGroup = Q_NULLPTR;
+    QActionGroup *iconThemeActionGroup = Q_NULLPTR;
+    QHash<QAction *, QIcon> originalActionIcons;
+    QHash<QToolButton *, QIcon> originalToolButtonIcons;
 
     TabsQuickActionsBar *tabsQuickActionsBar = Q_NULLPTR;
 

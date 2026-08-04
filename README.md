@@ -70,7 +70,7 @@ The build includes the optional Tree-sitter JSON lexer by default. Disable it wi
 
 Editor language services are available when their server is installed on `PATH`: `clangd` for C/C++, `pyright-langserver` for Python, `rust-analyzer` for Rust, and `gopls` for Go. Diagnostics are shown as editor squiggles, hover information appears after briefly resting the pointer over a symbol, and `F12` requests go-to-definition. The editor continues to work normally when a server is not installed.
 
-The View menu provides Fusion, Material, and Fluent theme variants. The selected theme is stored with the application settings and applies immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
+The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 If you are new to building C++ Qt desktop applications, there is a more detailed guide [here](/doc/Building.md).
 

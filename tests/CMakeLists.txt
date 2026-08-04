@@ -133,3 +133,25 @@ target_link_libraries(NotepadNextThemeManagerTests
 )
 
 add_test(NAME NotepadNextThemeManagerTests COMMAND NotepadNextThemeManagerTests)
+
+qt_add_executable(NotepadNextIconThemeManagerTests
+    IconThemeManagerTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/IconThemeManager.cpp
+)
+
+target_include_directories(NotepadNextIconThemeManagerTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextIconThemeManagerTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextIconThemeManagerTests COMMAND NotepadNextIconThemeManagerTests)
+set_tests_properties(NotepadNextIconThemeManagerTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

@@ -224,6 +224,31 @@ ads--CDockAreaTitleBar {
     border-bottom: 3px solid #6750a4;
     background: #fffbfe;
 }
+
+#windowsMenuWidget, #windowsTitleBar {
+    background: #fffbfe;
+}
+
+#windowsTitleBarTitle {
+    color: #1d1b20;
+}
+
+#windowsTitleBarMinimizeButton, #windowsTitleBarMaximizeButton, #windowsTitleBarCloseButton {
+    border: none;
+    border-radius: 0px;
+    background: transparent;
+    color: #1d1b20;
+    padding: 0px;
+}
+
+#windowsTitleBarMinimizeButton:hover, #windowsTitleBarMaximizeButton:hover {
+    background: #e8def8;
+}
+
+#windowsTitleBarCloseButton:hover {
+    background: #ba1a1a;
+    color: #ffffff;
+}
 )");
     case Variant::Fluent:
         return QStringLiteral(R"(
@@ -330,6 +355,31 @@ ads--CDockAreaTitleBar {
     border-right: 1px solid #454545;
     border-bottom: 3px solid #60cdff;
     background: #202020;
+}
+
+#windowsMenuWidget, #windowsTitleBar {
+    background: #202020;
+}
+
+#windowsTitleBarTitle {
+    color: #f3f3f3;
+}
+
+#windowsTitleBarMinimizeButton, #windowsTitleBarMaximizeButton, #windowsTitleBarCloseButton {
+    border: none;
+    border-radius: 0px;
+    background: transparent;
+    color: #f3f3f3;
+    padding: 0px;
+}
+
+#windowsTitleBarMinimizeButton:hover, #windowsTitleBarMaximizeButton:hover {
+    background: #3b3b3b;
+}
+
+#windowsTitleBarCloseButton:hover {
+    background: #c42b1c;
+    color: #ffffff;
 }
 )");
     default:

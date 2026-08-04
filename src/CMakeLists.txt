@@ -204,6 +204,8 @@ qt_add_executable(NotepadNext
 	ScintillaSorter.h ScintillaSorter.cpp
 	widgets/TabsQuickActionsBar.cpp
 	widgets/TabsQuickActionsBar.h
+	widgets/WindowsTitleBar.cpp
+	widgets/WindowsTitleBar.h
 )
 
 set_target_properties(NotepadNext PROPERTIES
@@ -260,6 +262,10 @@ target_link_libraries(NotepadNext
         scintilla
         uchardet
 )
+
+if(WIN32)
+    target_link_libraries(NotepadNext PRIVATE dwmapi)
+endif()
 
 target_compile_definitions(NotepadNext
     PRIVATE

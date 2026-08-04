@@ -43,10 +43,12 @@
 #include <QScreen>
 #include <QFontDatabase>
 #include <QStyleFactory>
+#include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
 #include <QSimpleUpdater.h>
 #include <Windows.h>
+#include <dwmapi.h>
 #endif
 
 #include "DockAreaWidget.h"
@@ -79,6 +81,9 @@
 #include "ColumnEditorDialog.h"
 
 #include "TabsQuickActionsBar.h"
+#ifdef Q_OS_WIN
+#include "WindowsTitleBar.h"
+#endif
 
 #include "QuickFindWidget.h"
 
@@ -107,6 +112,9 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
     ui->setupUi(this);
 
+#ifdef Q_OS_WIN
+    setupWindowsTitleBar();
+#endif
     setupThemeMenu();
     setupIconThemeMenu();
     applyCustomShortcuts();
@@ -678,6 +686,12 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
             showFullScreen();
 
+#ifdef Q_OS_WIN
+            if (windowsTitleBar) {
+                windowsTitleBar->hide();
+            }
+#endif
+
             ui->pushExitFullScreen->setGeometry(width() - 20, 0, 20, 20);
             ui->pushExitFullScreen->show();
             ui->pushExitFullScreen->raise();
@@ -690,6 +704,12 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
                 showMaximized();
             else
                 showNormal();
+
+#ifdef Q_OS_WIN
+            if (windowsTitleBar) {
+                windowsTitleBar->show();
+            }
+#endif
 
             ui->pushExitFullScreen->hide();
         }
@@ -1033,6 +1053,115 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+#ifdef Q_OS_WIN
+void MainWindow::setupWindowsTitleBar()
+{
+    setWindowFlag(Qt::FramelessWindowHint, true);
+
+    auto *container = new QWidget(this);
+    container->setObjectName(QStringLiteral("windowsMenuWidget"));
+    container->setAttribute(Qt::WA_StyledBackground, true);
+
+    auto *layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+
+    windowsTitleBar = new WindowsTitleBar(this, container);
+    layout->addWidget(windowsTitleBar);
+
+    ui->menuBar->setParent(container);
+    layout->addWidget(ui->menuBar);
+
+    setMenuWidget(container);
+}
+
+void MainWindow::applyWindowsFrameEffects()
+{
+    const HWND windowHandle = reinterpret_cast<HWND>(winId());
+    if (!windowHandle) {
+        return;
+    }
+
+    constexpr DWORD UseImmersiveDarkModeAttribute = 20;
+    constexpr DWORD WindowCornerPreferenceAttribute = 33;
+    constexpr DWORD SystemBackdropTypeAttribute = 38;
+    constexpr int RoundCorner = 2;
+    constexpr int MicaBackdrop = 2;
+
+    const BOOL darkMode = ThemeManager::variantFromValue(app->getSettings()->theme()) == ThemeManager::Variant::Fluent;
+    const int cornerPreference = RoundCorner;
+    const int backdropType = MicaBackdrop;
+    DwmSetWindowAttribute(windowHandle, UseImmersiveDarkModeAttribute, &darkMode, sizeof(darkMode));
+    DwmSetWindowAttribute(windowHandle, WindowCornerPreferenceAttribute, &cornerPreference, sizeof(cornerPreference));
+    DwmSetWindowAttribute(windowHandle, SystemBackdropTypeAttribute, &backdropType, sizeof(backdropType));
+    SetWindowPos(windowHandle, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    windowsTitleBar->refreshWindowState();
+    applyWindowsFrameEffects();
+}
+
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
+{
+    Q_UNUSED(eventType)
+
+    auto *msg = static_cast<MSG *>(message);
+    if (msg && windowsTitleBar) {
+        const int globalX = static_cast<short>(LOWORD(msg->lParam));
+        const int globalY = static_cast<short>(HIWORD(msg->lParam));
+        const QPoint globalPoint(globalX, globalY);
+        const QPoint titleBarPoint = windowsTitleBar->mapFromGlobal(globalPoint);
+
+        if (msg->message == WM_NCHITTEST) {
+            const QRect frame = frameGeometry();
+            const bool inTitleBar = windowsTitleBar->rect().contains(titleBarPoint);
+            const bool interactive = inTitleBar && windowsTitleBar->isInteractivePoint(titleBarPoint);
+
+            if (!isMaximized() && !isFullScreen()) {
+                constexpr int ResizeBorder = 6;
+                const bool left = globalPoint.x() >= frame.left() && globalPoint.x() < frame.left() + ResizeBorder;
+                const bool right = globalPoint.x() < frame.right() && globalPoint.x() >= frame.right() - ResizeBorder;
+                const bool top = globalPoint.y() >= frame.top() && globalPoint.y() < frame.top() + ResizeBorder;
+                const bool bottom = globalPoint.y() < frame.bottom() && globalPoint.y() >= frame.bottom() - ResizeBorder;
+
+                if (top && left) { *result = HTTOPLEFT; return true; }
+                if (top && right) { *result = HTTOPRIGHT; return true; }
+                if (bottom && left) { *result = HTBOTTOMLEFT; return true; }
+                if (bottom && right) { *result = HTBOTTOMRIGHT; return true; }
+                if (left) { *result = HTLEFT; return true; }
+                if (right) { *result = HTRIGHT; return true; }
+                if (top) { *result = HTTOP; return true; }
+                if (bottom) { *result = HTBOTTOM; return true; }
+            }
+
+            if (inTitleBar) {
+                *result = interactive ? HTCLIENT : HTCAPTION;
+                return true;
+            }
+        }
+        else if (msg->message == WM_NCLBUTTONDBLCLK &&
+                 windowsTitleBar->rect().contains(titleBarPoint) &&
+                 !windowsTitleBar->isInteractivePoint(titleBarPoint)) {
+            if (isMaximized()) {
+                showNormal();
+            }
+            else {
+                showMaximized();
+            }
+            windowsTitleBar->refreshWindowState();
+            *result = 0;
+            return true;
+        }
+    }
+
+    return QMainWindow::nativeEvent(eventType, message, result);
+}
+#endif
 
 void MainWindow::applyCustomShortcuts()
 {
@@ -1913,6 +2042,9 @@ void MainWindow::applyStyleSheet()
     }
 
     setStyleSheet(sheet);
+#ifdef Q_OS_WIN
+    applyWindowsFrameEffects();
+#endif
     applyIconTheme();
 
     if (themeActionGroup) {

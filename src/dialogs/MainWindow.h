@@ -46,6 +46,9 @@ class ZoomEventWatcher;
 class Converter;
 class DefaultDirectoryManager;
 class TabsQuickActionsBar;
+#ifdef Q_OS_WIN
+class WindowsTitleBar;
+#endif
 
 class MainWindow : public QMainWindow
 {
@@ -141,6 +144,10 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+#ifdef Q_OS_WIN
+    void showEvent(QShowEvent *event) override;
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+#endif
 
 private slots:
     void tabBarRightClicked(ScintillaNext *editor);
@@ -183,6 +190,10 @@ private:
     void setupThemeMenu();
     void setupIconThemeMenu();
     void applyIconTheme();
+#ifdef Q_OS_WIN
+    void setupWindowsTitleBar();
+    void applyWindowsFrameEffects();
+#endif
 
     enum class UserSaveAction { SaveAll, DiscardAll, Cancel };
     UserSaveAction promptForSave(const QVector<ScintillaNext *> &editors);
@@ -197,6 +208,9 @@ private:
     QActionGroup *iconThemeActionGroup = Q_NULLPTR;
     QHash<QAction *, QIcon> originalActionIcons;
     QHash<QToolButton *, QIcon> originalToolButtonIcons;
+#ifdef Q_OS_WIN
+    WindowsTitleBar *windowsTitleBar = Q_NULLPTR;
+#endif
 
     TabsQuickActionsBar *tabsQuickActionsBar = Q_NULLPTR;
 

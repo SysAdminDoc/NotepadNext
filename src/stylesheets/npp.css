@@ -75,3 +75,37 @@ ads--CDockWidgetTab[activeTab="false"] QLabel {
     border-bottom: 3px solid blue;
     background: palette(window);
 }
+
+#windowsMenuWidget, #windowsTitleBar {
+    background: palette(window);
+}
+
+#windowsTitleBarTitle {
+    color: palette(window-text);
+    font-weight: 600;
+}
+
+#windowsTitleBarButton {
+    border: none;
+    border-radius: 0px;
+    background: transparent;
+    color: palette(window-text);
+    padding: 0px;
+}
+
+#windowsTitleBarMinimizeButton, #windowsTitleBarMaximizeButton, #windowsTitleBarCloseButton {
+    border: none;
+    border-radius: 0px;
+    background: transparent;
+    color: palette(window-text);
+    padding: 0px;
+}
+
+#windowsTitleBarMinimizeButton:hover, #windowsTitleBarMaximizeButton:hover {
+    background: rgba(128, 128, 128, 48);
+}
+
+#windowsTitleBarCloseButton:hover {
+    background: rgb(196, 43, 28);
+    color: white;
+}

@@ -27,6 +27,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Headless JSON-RPC framing and fake-server coverage for LSP initialization, document changes, diagnostics, hover, and definition responses.
 - Added: Persisted Fusion, Material, and Fluent theme variants with immediate View-menu switching, palette/QSS styling, and custom CSS overrides.
 - Added: Selectable Default, Nord, Catppuccin, and GitHub Dark icon packs with semantic accent colors and transparency-preserving recoloring.
+- Added: Windows custom frameless title bar with native resize hit-testing, window controls, and guarded DWM Mica/rounded-corner attributes.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

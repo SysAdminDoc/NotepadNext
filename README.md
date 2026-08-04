@@ -72,6 +72,8 @@ Editor language services are available when their server is installed on `PATH`:
 
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
+On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.
+
 If you are new to building C++ Qt desktop applications, there is a more detailed guide [here](/doc/Building.md).
 
 

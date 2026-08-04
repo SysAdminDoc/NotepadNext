@@ -37,6 +37,7 @@
 #include "BookMarkDecorator.h"
 #include "HTMLAutoCompleteDecorator.h"
 #include "StickyScroll.h"
+#include "Minimap.h"
 
 
 const int MARK_HIDELINESBEGIN = 23;
@@ -345,6 +346,7 @@ void EditorManager::setupEditor(ScintillaNext *editor)
 
     new HTMLAutoCompleteDecorator(editor);
     new StickyScroll(editor);
+    new Minimap(editor);
 }
 
 void EditorManager::purgeOldEditorPointers()

@@ -130,6 +130,8 @@ qt_add_executable(NotepadNext
 	decorators/HTMLAutoCompleteDecorator.h
 	decorators/LineNumbers.cpp
 	decorators/LineNumbers.h
+	decorators/Minimap.cpp
+	decorators/Minimap.h
 	decorators/MarkerAppDecorator.cpp
 	decorators/MarkerAppDecorator.h
 	decorators/SmartHighlighter.cpp

@@ -17,6 +17,7 @@ qt_add_executable(NotepadNext
 	EditorManager.h
 	EditorPrintPreviewRenderer.h
 	FileDialogHelpers.h
+	FindInFilesDock.h
 	Finder.h
 	GitManager.h
 	GitRepository.h
@@ -48,6 +49,7 @@ qt_add_executable(NotepadNext
 	RecentFilesListManager.h
 	RecentFilesListMenuBuilder.h
 	RtfConverter.h
+	RipgrepSearch.h
 	SciIFaceTable.h
 	ScintillaCommenter.h
 	ScintillaEnums.h
@@ -82,6 +84,7 @@ qt_add_executable(NotepadNext
 	EditorManager.cpp
 	EditorPrintPreviewRenderer.cpp
 	FileDialogHelpers.cpp
+	FindInFilesDock.cpp
 	Finder.cpp
 	GitManager.cpp
 	GitRepository.cpp
@@ -111,6 +114,7 @@ qt_add_executable(NotepadNext
 	RecentFilesListManager.cpp
 	RecentFilesListMenuBuilder.cpp
 	RtfConverter.cpp
+	RipgrepSearch.cpp
 	SciIFaceTable.cpp
 	ScintillaCommenter.cpp
 	ScintillaNext.cpp

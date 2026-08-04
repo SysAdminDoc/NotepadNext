@@ -48,6 +48,7 @@ class DefaultDirectoryManager;
 class TabsQuickActionsBar;
 class MarkdownPreviewDock;
 class TerminalDock;
+class FindInFilesDock;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
 #endif
@@ -163,6 +164,7 @@ private:
     DockedEditor *dockedEditor = Q_NULLPTR;
     MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
     TerminalDock *terminalDock = Q_NULLPTR;
+    FindInFilesDock *findInFilesDock = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;
     QAction *unstageCurrentFileAction = Q_NULLPTR;
     QAction *blameGutterAction = Q_NULLPTR;

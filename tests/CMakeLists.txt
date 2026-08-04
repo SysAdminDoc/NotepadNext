@@ -254,3 +254,21 @@ target_link_libraries(NotepadNextTerminalProcessTests
 )
 
 add_test(NAME NotepadNextTerminalProcessTests COMMAND NotepadNextTerminalProcessTests)
+
+qt_add_executable(NotepadNextRipgrepSearchTests
+    RipgrepSearchTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/RipgrepSearch.cpp
+)
+
+target_include_directories(NotepadNextRipgrepSearchTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextRipgrepSearchTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextRipgrepSearchTests COMMAND NotepadNextRipgrepSearchTests)

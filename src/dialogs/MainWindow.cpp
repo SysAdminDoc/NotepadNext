@@ -69,6 +69,7 @@
 #include "MarkdownPreviewDock.h"
 #include "GitManager.h"
 #include "TerminalDock.h"
+#include "FindInFilesDock.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -565,6 +566,47 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         if (editor && editor->isFile()) {
             terminalDock->setWorkingDirectory(editor->getFileInfo().dir().absolutePath());
         }
+    });
+
+    findInFilesDock = new FindInFilesDock(this);
+    findInFilesDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, findInFilesDock);
+    ui->actionFindInFiles->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+F")));
+    ui->actionFindInFiles->setShortcutContext(Qt::WindowShortcut);
+    connect(ui->actionFindInFiles, &QAction::triggered, this, [this]() {
+        ScintillaNext *editor = currentEditor();
+        if (editor && editor->isFile()) {
+            findInFilesDock->setSearchPath(editor->getFileInfo().dir().absolutePath());
+        }
+        if (editor && !editor->selectionEmpty()) {
+            const int selection = editor->mainSelection();
+            const int start = editor->selectionNStart(selection);
+            const int end = editor->selectionNEnd(selection);
+            if (end > start) {
+                findInFilesDock->setPattern(QString::fromUtf8(editor->get_text_range(start, end)));
+            }
+        }
+        findInFilesDock->show();
+        findInFilesDock->raise();
+        findInFilesDock->focusPattern();
+    });
+    connect(findInFilesDock, &FindInFilesDock::resultActivated, this,
+            [this](const QString &filePath, int lineNumber, int startByte, int endByte) {
+        openFile(filePath);
+        ScintillaNext *editor = this->app->getEditorManager()->getEditorByFilePath(filePath);
+        if (!editor) {
+            return;
+        }
+
+        dockedEditor->switchToEditor(editor);
+        const int line = qBound(0, lineNumber - 1, editor->lineCount() - 1);
+        const int lineStart = editor->positionFromLine(line);
+        const int lineEnd = editor->lineEndPosition(line);
+        const int start = qBound(lineStart, lineStart + startByte, lineEnd);
+        const int end = qBound(start, lineStart + endByte, lineEnd);
+        editor->goToRange({start, end});
+        editor->verticalCentreCaret();
+        editor->grabFocus();
     });
 
     connect(ui->actionFind, &QAction::triggered, this, [this]() {

@@ -32,6 +32,8 @@ flatpak install flathub com.github.dail8859.NotepadNext
 
 The maintained Flatpak manifest is [`deploy/flatpak/com.github.dail8859.NotepadNext.yml`](deploy/flatpak/com.github.dail8859.NotepadNext.yml). It forwards files through the desktop portal and keeps settings and session data in the Flatpak-scoped portable profile. Build it locally with `flatpak-builder --user --install --force-clean build-flatpak deploy/flatpak/com.github.dail8859.NotepadNext.yml`.
 
+The Linux desktop entry registers Notepad Next as a text-file handler and accepts multiple files from the file manager. The Windows installer adds both an “Open with” registration and an optional context-menu command, while the macOS application bundle registers itself as an editor for text documents.
+
 If you are using Ubuntu and prefer an up-to-date deb version, you can use the [PPA supporting Ubuntu 22.04 and newer](https://launchpad.net/~quentiumyt/+archive/ubuntu/notepadnext) provided by
 [Quentin Lienhardt](https://github.com/QuentiumYT). You can add it by executing:
 

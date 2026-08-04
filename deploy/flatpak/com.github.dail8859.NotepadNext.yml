@@ -56,5 +56,5 @@ modules:
         dest: .cpm-cache/editorconfig_core_qt/87f1
 
     post-install:
-      - sed -i 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop
+      - sed -i -e 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' -e 's|^Exec=NotepadNext %U$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop
       - install -D -m644 deploy/linux/com.github.dail8859.NotepadNext.metainfo.xml /app/share/metainfo/com.github.dail8859.NotepadNext.metainfo.xml

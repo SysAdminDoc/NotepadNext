@@ -168,3 +168,10 @@ target_link_libraries(NotepadNextFontLigatureTests
 )
 
 add_test(NAME NotepadNextFontLigatureTests COMMAND NotepadNextFontLigatureTests)
+
+add_test(
+    NAME NotepadNextShellIntegrationTests
+    COMMAND ${CMAKE_COMMAND}
+        -DNOTEPADNEXT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -P ${CMAKE_SOURCE_DIR}/cmake/ValidateShellIntegration.cmake
+)

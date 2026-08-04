@@ -31,6 +31,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Explicit Qt/HarfBuzz programming-font shaping for standard and contextual OpenType ligature features, with a Qt-version compatibility guard.
 - Added: An in-tree Homebrew cask mirror for the current macOS release, including release live-checking and deterministic DMG verification.
 - Added: An updated CMake-based Flatpak manifest pinned to v0.14, with offline CPM dependency sources, portal file forwarding, and a persistent app-scoped profile.
+- Added: Cross-platform “Open with Notepad Next” packaging integration with multi-file Linux/Flatpak forwarding, macOS text-editor registration, and Windows installer coverage checks.
 - Fixed: Linux packaging now keeps AppImage-only qmake discovery out of normal and Flatpak CMake configuration.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)

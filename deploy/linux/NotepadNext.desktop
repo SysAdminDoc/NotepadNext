@@ -1,6 +1,6 @@
 [Desktop Entry]
 Categories=Qt;TextEditor;Utility;
-Exec=NotepadNext %f
+Exec=NotepadNext %U
 Icon=NotepadNext
 MimeType=text/plain;
 StartupNotify=true

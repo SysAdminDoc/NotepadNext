@@ -54,6 +54,7 @@ qt_add_executable(NotepadNext
 	SelectionTracker.h
 	SessionManager.h
 	SessionJournal.h
+	SchemaValidator.h
 	SpinBoxDelegate.h
 	TranslationManager.h
 	ThemeManager.h
@@ -107,6 +108,7 @@ qt_add_executable(NotepadNext
 	SelectionTracker.cpp
 	SessionManager.cpp
 	SessionJournal.cpp
+	SchemaValidator.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	ThemeManager.cpp
@@ -261,7 +263,10 @@ target_link_libraries(NotepadNext
         lexilla
         scintilla
         uchardet
+		yaml-cpp::yaml-cpp
 )
+
+target_include_directories(NotepadNext PRIVATE ${CPM_PACKAGE_tomlplusplus_SOURCE_DIR}/include)
 
 if(WIN32)
     target_link_libraries(NotepadNext PRIVATE dwmapi)

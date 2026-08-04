@@ -30,6 +30,23 @@ CPMAddPackage(
     GIT_TAG ab62f0554abf2bbe4d45427b36a8b2f81ca7b4ab
 )
 
+CPMAddPackage(
+    NAME yaml-cpp
+    GITHUB_REPOSITORY jbeder/yaml-cpp
+    GIT_TAG yaml-cpp-0.9.0
+    OPTIONS
+        "YAML_CPP_BUILD_TESTS OFF"
+        "YAML_CPP_BUILD_TOOLS OFF"
+        "YAML_BUILD_SHARED_LIBS OFF"
+)
+
+CPMAddPackage(
+    NAME tomlplusplus
+    GITHUB_REPOSITORY marzer/tomlplusplus
+    GIT_TAG v3.4.0
+    DOWNLOAD_ONLY YES
+)
+
 add_subdirectory(lua)
 add_subdirectory(scintilla)
 add_subdirectory(lexilla)

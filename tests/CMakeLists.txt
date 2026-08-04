@@ -175,3 +175,23 @@ add_test(
         -DNOTEPADNEXT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -P ${CMAKE_SOURCE_DIR}/cmake/ValidateShellIntegration.cmake
 )
+
+qt_add_executable(NotepadNextSchemaValidatorTests
+    SchemaValidatorTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/SchemaValidator.cpp
+)
+
+target_include_directories(NotepadNextSchemaValidatorTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CPM_PACKAGE_tomlplusplus_SOURCE_DIR}/include
+)
+
+target_link_libraries(NotepadNextSchemaValidatorTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+        yaml-cpp::yaml-cpp
+)
+
+add_test(NAME NotepadNextSchemaValidatorTests COMMAND NotepadNextSchemaValidatorTests)

@@ -55,6 +55,7 @@ qt_add_executable(NotepadNext
 	SessionJournal.h
 	SpinBoxDelegate.h
 	TranslationManager.h
+	ThemeManager.h
 	UndoAction.h
 	ZoomEventWatcher.h
 	resources.qrc
@@ -106,6 +107,7 @@ qt_add_executable(NotepadNext
 	SessionJournal.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
+	ThemeManager.cpp
 	UndoAction.cpp
 	ZoomEventWatcher.cpp
 	decorators/ApplicationDecorator.cpp

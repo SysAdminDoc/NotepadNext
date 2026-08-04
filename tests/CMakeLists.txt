@@ -114,3 +114,22 @@ target_link_libraries(NotepadNextLspProtocolTests
 )
 
 add_test(NAME NotepadNextLspProtocolTests COMMAND NotepadNextLspProtocolTests)
+
+qt_add_executable(NotepadNextThemeManagerTests
+    ThemeManagerTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/ThemeManager.cpp
+)
+
+target_include_directories(NotepadNextThemeManagerTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextThemeManagerTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextThemeManagerTests COMMAND NotepadNextThemeManagerTests)

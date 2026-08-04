@@ -42,6 +42,7 @@
 #include <QProcess>
 #include <QScreen>
 #include <QFontDatabase>
+#include <QStyleFactory>
 
 #ifdef Q_OS_WIN
 #include <QSimpleUpdater.h>
@@ -52,6 +53,7 @@
 
 #include "NotepadNextApplication.h"
 #include "ApplicationSettings.h"
+#include "ThemeManager.h"
 
 #include "ScintillaNext.h"
 
@@ -104,6 +106,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
     ui->setupUi(this);
 
+    setupThemeMenu();
     applyCustomShortcuts();
 
     auto *commandPaletteAction = new QAction(tr("Command Palette"), this);
@@ -1877,6 +1880,12 @@ void MainWindow::applyStyleSheet()
 {
     qInfo(Q_FUNC_INFO);
 
+    const ThemeManager::Variant variant = ThemeManager::variantFromValue(app->getSettings()->theme());
+    if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion"))) {
+        qApp->setStyle(fusion);
+        qApp->setPalette(ThemeManager::palette(variant, qApp->style()->standardPalette()));
+    }
+
     QString sheet;
     QFile f(":/stylesheets/npp.css");
     qInfo() << "Loading stylesheet:" << f.fileName();
@@ -1884,6 +1893,8 @@ void MainWindow::applyStyleSheet()
     f.open(QFile::ReadOnly);
     sheet = f.readAll();
     f.close();
+
+    sheet += ThemeManager::styleSheet(variant);
 
     // If there is a "custom.css" file where the ini is located, load it as a style sheet addition
     QString directoryPath = QFileInfo(app->getSettings()->fileName()).absolutePath();
@@ -1898,6 +1909,40 @@ void MainWindow::applyStyleSheet()
     }
 
     setStyleSheet(sheet);
+
+    if (themeActionGroup) {
+        for (QAction *action : themeActionGroup->actions()) {
+            action->setChecked(action->data().toInt() == ThemeManager::value(variant));
+        }
+    }
+}
+
+void MainWindow::setupThemeMenu()
+{
+    themeActionGroup = new QActionGroup(this);
+    themeActionGroup->setExclusive(true);
+
+    const QList<QPair<ThemeManager::Variant, QString>> variants = {
+        {ThemeManager::Variant::Fusion, tr("Fusion")},
+        {ThemeManager::Variant::Material, tr("Material")},
+        {ThemeManager::Variant::Fluent, tr("Fluent")},
+    };
+
+    ui->menuView->addSeparator();
+    for (const auto &[variant, label] : variants) {
+        auto *action = new QAction(label, themeActionGroup);
+        action->setObjectName(QStringLiteral("actionTheme") + ThemeManager::name(variant));
+        action->setCheckable(true);
+        action->setData(ThemeManager::value(variant));
+        themeActionGroup->addAction(action);
+        ui->menuView->addAction(action);
+
+        connect(action, &QAction::triggered, this, [this, action]() {
+            app->getSettings()->setTheme(action->data().toInt());
+        });
+    }
+
+    connect(app->getSettings(), &ApplicationSettings::themeChanged, this, &MainWindow::applyStyleSheet);
 }
 
 void MainWindow::setLanguage(ScintillaNext *editor, const QString &languageName)

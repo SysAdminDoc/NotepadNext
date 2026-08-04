@@ -177,6 +177,7 @@ private:
     bool checkFileForModification(ScintillaNext *editor);
     void showSaveErrorMessage(ScintillaNext *editor, QFileDevice::FileError error);
     void showEditorZoomLevelIndicator();
+    void setupThemeMenu();
 
     enum class UserSaveAction { SaveAll, DiscardAll, Cancel };
     UserSaveAction promptForSave(const QVector<ScintillaNext *> &editors);
@@ -187,6 +188,7 @@ private:
     ISearchResultsHandler *determineSearchResultsHandler();
 
     QActionGroup *languageActionGroup;
+    QActionGroup *themeActionGroup = Q_NULLPTR;
 
     TabsQuickActionsBar *tabsQuickActionsBar = Q_NULLPTR;
 

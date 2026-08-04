@@ -49,6 +49,7 @@ class TabsQuickActionsBar;
 class MarkdownPreviewDock;
 class TerminalDock;
 class FindInFilesDock;
+class HexEditorDock;
 class RegexBuilderDock;
 class ScriptConsoleDock;
 #ifdef Q_OS_WIN
@@ -167,6 +168,7 @@ private:
     MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
     TerminalDock *terminalDock = Q_NULLPTR;
     FindInFilesDock *findInFilesDock = Q_NULLPTR;
+    HexEditorDock *hexEditorDock = Q_NULLPTR;
     RegexBuilderDock *regexBuilderDock = Q_NULLPTR;
     ScriptConsoleDock *scriptConsoleDock = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;

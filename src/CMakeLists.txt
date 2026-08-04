@@ -18,6 +18,9 @@ qt_add_executable(NotepadNext
 	EditorPrintPreviewRenderer.h
 	FileDialogHelpers.h
 	FindInFilesDock.h
+	HexDocument.h
+	HexEditorDock.h
+	HexTableModel.h
 	Finder.h
 	GitManager.h
 	GitRepository.h
@@ -93,6 +96,9 @@ qt_add_executable(NotepadNext
 	EditorPrintPreviewRenderer.cpp
 	FileDialogHelpers.cpp
 	FindInFilesDock.cpp
+	HexDocument.cpp
+	HexEditorDock.cpp
+	HexTableModel.cpp
 	Finder.cpp
 	GitManager.cpp
 	GitRepository.cpp

@@ -28,6 +28,7 @@
 #include "ui_MainWindow.h"
 
 #include <QFileDialog>
+#include <QApplication>
 #include <QMessageBox>
 #include <QStringList>
 #include <QClipboard>
@@ -72,6 +73,8 @@
 #include "PortableMode.h"
 #include "TerminalDock.h"
 #include "FindInFilesDock.h"
+#include "HexDocument.h"
+#include "HexEditorDock.h"
 #include "RegexBuilderDock.h"
 #include "ScriptConsoleDock.h"
 
@@ -312,7 +315,15 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(ui->actionCloseAllToLeft, &QAction::triggered, this, &MainWindow::closeAllToLeft);
     connect(ui->actionCloseAllToRight, &QAction::triggered, this, &MainWindow::closeAllToRight);
 
-    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::saveCurrentFile);
+    connect(ui->actionSave, &QAction::triggered, this, [this]() {
+        const QWidget *focus = QApplication::focusWidget();
+        if (hexEditorDock && hexEditorDock->isVisible() && hexEditorDock->hasFile()
+            && focus && hexEditorDock->isAncestorOf(focus)) {
+            hexEditorDock->saveFile();
+            return;
+        }
+        saveCurrentFile();
+    });
     connect(ui->actionSaveAs, &QAction::triggered, this, &MainWindow::saveCurrentFileAsDialog);
     connect(ui->actionSaveCopyAs, &QAction::triggered, this, &MainWindow::saveCopyAsDialog);
     connect(ui->actionSaveAll, &QAction::triggered, this, &MainWindow::saveAll);
@@ -582,6 +593,28 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
             terminalDock->setWorkingDirectory(editor->getFileInfo().dir().absolutePath());
         }
     });
+
+    hexEditorDock = new HexEditorDock(this, this);
+    hexEditorDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, hexEditorDock);
+    QAction *hexEditorAction = hexEditorDock->toggleViewAction();
+    hexEditorAction->setObjectName(QStringLiteral("actionHexEditor"));
+    hexEditorAction->setText(tr("Hex Editor"));
+    hexEditorAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Alt+H")));
+    hexEditorAction->setShortcutContext(Qt::WindowShortcut);
+    ui->menuView->addAction(hexEditorAction);
+    connect(hexEditorDock, &HexEditorDock::documentStateChanged, this, [this]() {
+        const QWidget *focus = QApplication::focusWidget();
+        if (hexEditorDock && hexEditorDock->isVisible() && focus && hexEditorDock->isAncestorOf(focus)) {
+            ui->actionSave->setEnabled(hexEditorDock->canSave());
+        }
+    });
+
+    auto *openHexEditorAction = new QAction(tr("Open in Hex Editor..."), this);
+    openHexEditorAction->setObjectName(QStringLiteral("actionOpenInHexEditor"));
+    addAction(openHexEditorAction);
+    ui->menuFile->insertAction(ui->actionOpenFolderasWorkspace, openHexEditorAction);
+    connect(openHexEditorAction, &QAction::triggered, hexEditorDock, &HexEditorDock::openCurrentFile);
 
     scriptConsoleDock = new ScriptConsoleDock(app, this);
     scriptConsoleDock->hide();
@@ -1556,6 +1589,16 @@ void MainWindow::openFileList(const QStringList &fileNames)
         if (editor == Q_NULLPTR) {
             QFileInfo fileInfo(filePath);
 
+            if (fileInfo.isFile()
+                && HexDocument::probeFile(filePath) == HexDocument::ProbeResult::Binary) {
+                if (hexEditorDock->openFile(filePath)) {
+                    hexEditorDock->show();
+                    hexEditorDock->raise();
+                    hexEditorDock->focusTable();
+                }
+                continue;
+            }
+
             if (!fileInfo.isFile()) {
                 auto reply = QMessageBox::question(this, tr("Create File"), tr("<b>%1</b> does not exist. Do you want to create it?").arg(filePath));
 
@@ -1588,7 +1631,6 @@ void MainWindow::openFileList(const QStringList &fileNames)
             initialEditor->close();
         }
     }
-
 }
 
 bool MainWindow::checkEditorsBeforeClose(const QVector<ScintillaNext *> &editors)
@@ -2792,6 +2834,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 
     if (!checkEditorsBeforeClose(e)) {
+        event->ignore();
+        return;
+    }
+
+    if (hexEditorDock && !hexEditorDock->confirmClose()) {
         event->ignore();
         return;
     }

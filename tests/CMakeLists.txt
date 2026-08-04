@@ -71,6 +71,26 @@ target_link_libraries(NotepadNextRegexBuilderTests
 
 add_test(NAME NotepadNextRegexBuilderTests COMMAND NotepadNextRegexBuilderTests)
 
+qt_add_executable(NotepadNextHexDocumentTests
+    HexDocumentTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/HexDocument.cpp
+    ${CMAKE_SOURCE_DIR}/src/HexTableModel.cpp
+)
+
+target_include_directories(NotepadNextHexDocumentTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextHexDocumentTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Core5Compat
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextHexDocumentTests COMMAND NotepadNextHexDocumentTests)
+
 qt_add_executable(NotepadNextLanguageDefinitionTests
     LanguageDefinitionTests.cpp
     ${CMAKE_SOURCE_DIR}/src/LuaState.cpp

@@ -91,6 +91,24 @@ target_link_libraries(NotepadNextHexDocumentTests
 
 add_test(NAME NotepadNextHexDocumentTests COMMAND NotepadNextHexDocumentTests)
 
+qt_add_executable(NotepadNextSnippetEngineTests
+    SnippetEngineTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/SnippetEngine.cpp
+)
+
+target_include_directories(NotepadNextSnippetEngineTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextSnippetEngineTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextSnippetEngineTests COMMAND NotepadNextSnippetEngineTests)
+
 qt_add_executable(NotepadNextLanguageDefinitionTests
     LanguageDefinitionTests.cpp
     ${CMAKE_SOURCE_DIR}/src/LuaState.cpp

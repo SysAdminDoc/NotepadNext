@@ -35,6 +35,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: A docked QuickJS-NG JavaScript console with a document automation bridge, script-file execution, output helpers, memory limits, and runaway-script interruption.
 - Added: A Regex Builder dock with live match inspection, named and numbered capture-group visualization, sample-text highlighting, and current-document/selection loading.
 - Added: Automatic binary-file detection with an editable, atomic-save Hex Editor dock, byte/ASCII inspection, and a 64 MiB safety limit.
+- Added: A persisted Snippet Manager with trigger expansion, UTF-8-safe placeholder navigation, and Tab/Shift+Tab movement through `${1:default}` and `${0}` tabstops.
 - Added: Persisted Fusion, Material, and Fluent theme variants with immediate View-menu switching, palette/QSS styling, and custom CSS overrides.
 - Added: Selectable Default, Nord, Catppuccin, and GitHub Dark icon packs with semantic accent colors and transparency-preserving recoloring.
 - Added: Windows custom frameless title bar with native resize hit-testing, window controls, and guarded DWM Mica/rounded-corner attributes.

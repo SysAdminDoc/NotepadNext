@@ -73,6 +73,8 @@ qt_add_executable(NotepadNext
 	SchemaManager.h
 	ScriptConsoleBridge.h
 	ScriptConsoleDock.h
+	SnippetEngine.h
+	SnippetManagerDock.h
 	SpinBoxDelegate.h
 	TranslationManager.h
 	ThemeManager.h
@@ -147,6 +149,8 @@ qt_add_executable(NotepadNext
 	SchemaManager.cpp
 	ScriptConsoleBridge.cpp
 	ScriptConsoleDock.cpp
+	SnippetEngine.cpp
+	SnippetManagerDock.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	ThemeManager.cpp

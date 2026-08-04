@@ -77,6 +77,7 @@
 #include "HexEditorDock.h"
 #include "RegexBuilderDock.h"
 #include "ScriptConsoleDock.h"
+#include "SnippetManagerDock.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -615,6 +616,26 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     addAction(openHexEditorAction);
     ui->menuFile->insertAction(ui->actionOpenFolderasWorkspace, openHexEditorAction);
     connect(openHexEditorAction, &QAction::triggered, hexEditorDock, &HexEditorDock::openCurrentFile);
+
+    snippetManagerDock = new SnippetManagerDock(this, this);
+    snippetManagerDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, snippetManagerDock);
+    QAction *snippetManagerAction = snippetManagerDock->toggleViewAction();
+    snippetManagerAction->setObjectName(QStringLiteral("actionSnippetManager"));
+    snippetManagerAction->setText(tr("Snippet Manager"));
+    snippetManagerAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Alt+S")));
+    snippetManagerAction->setShortcutContext(Qt::WindowShortcut);
+    ui->menuView->addAction(snippetManagerAction);
+
+    auto *insertSnippetAction = new QAction(tr("Insert Snippet..."), this);
+    insertSnippetAction->setObjectName(QStringLiteral("actionInsertSnippet"));
+    addAction(insertSnippetAction);
+    ui->menuEdit->addAction(insertSnippetAction);
+    connect(insertSnippetAction, &QAction::triggered, this, [this]() {
+        snippetManagerDock->show();
+        snippetManagerDock->raise();
+        snippetManagerDock->focusFilter();
+    });
 
     scriptConsoleDock = new ScriptConsoleDock(app, this);
     scriptConsoleDock->hide();
@@ -2695,6 +2716,8 @@ void MainWindow::addEditor(ScintillaNext *editor)
     editor->viewport()->installEventFilter(zoomEventWatcher);
 
     editor->setZoom(zoomLevel);
+
+    snippetManagerDock->attachEditor(editor);
 
     editor->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(editor, &ScintillaNext::customContextMenuRequested, this, [=, this](const QPoint &pos) {

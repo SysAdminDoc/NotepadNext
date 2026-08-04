@@ -52,6 +52,7 @@ class FindInFilesDock;
 class HexEditorDock;
 class RegexBuilderDock;
 class ScriptConsoleDock;
+class SnippetManagerDock;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
 #endif
@@ -171,6 +172,7 @@ private:
     HexEditorDock *hexEditorDock = Q_NULLPTR;
     RegexBuilderDock *regexBuilderDock = Q_NULLPTR;
     ScriptConsoleDock *scriptConsoleDock = Q_NULLPTR;
+    SnippetManagerDock *snippetManagerDock = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;
     QAction *unstageCurrentFileAction = Q_NULLPTR;
     QAction *blameGutterAction = Q_NULLPTR;

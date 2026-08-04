@@ -18,6 +18,8 @@ qt_add_executable(NotepadNext
 	EditorPrintPreviewRenderer.h
 	FileDialogHelpers.h
 	Finder.h
+	GitManager.h
+	GitRepository.h
 	FocusWatcher.h
 	HtmlConverter.h
 	IFaceTable.h
@@ -79,6 +81,8 @@ qt_add_executable(NotepadNext
 	EditorPrintPreviewRenderer.cpp
 	FileDialogHelpers.cpp
 	Finder.cpp
+	GitManager.cpp
+	GitRepository.cpp
 	HtmlConverter.cpp
 	IFaceTable.cpp
 	IFaceTableMixer.cpp
@@ -238,6 +242,7 @@ target_include_directories(NotepadNext
         ${CMAKE_CURRENT_SOURCE_DIR}/docks
         ${CMAKE_CURRENT_SOURCE_DIR}/widgets
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
 )
 
 if(WIN32)
@@ -270,6 +275,7 @@ target_link_libraries(NotepadNext
         scintilla
         uchardet
 		yaml-cpp::yaml-cpp
+		libgit2package
 )
 
 if (NOTEPADNEXT_HAS_WEBENGINE)

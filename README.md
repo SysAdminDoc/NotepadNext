@@ -80,6 +80,8 @@ JSON, YAML, and TOML documents can be validated against JSON Schema documents fr
 
 Markdown and MDX documents can be previewed live from **View > Markdown Preview**. The preview opens as a docked split pane, follows the active editor, refreshes while typing, and resolves local images and links relative to the document. Qt WebEngine is used when the installed Qt kit provides it; otherwise the preview uses Qt's built-in Markdown renderer with scripting disabled.
 
+Git repositories get a local diff gutter automatically when a file is open. **File > Stage Current File** and **File > Unstage Current File** update the index for the active document without invoking a Git process. **View > Git Blame Gutter** shows compact author and commit labels for the active file, including unsaved working-tree lines.
+
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.

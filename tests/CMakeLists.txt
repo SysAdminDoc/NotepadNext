@@ -216,3 +216,23 @@ add_test(NAME NotepadNextMarkdownPreviewTests COMMAND NotepadNextMarkdownPreview
 set_tests_properties(NotepadNextMarkdownPreviewTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+qt_add_executable(NotepadNextGitRepositoryTests
+    GitRepositoryTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/GitRepository.cpp
+)
+
+target_include_directories(NotepadNextGitRepositoryTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
+)
+
+target_link_libraries(NotepadNextGitRepositoryTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+        libgit2package
+)
+
+add_test(NAME NotepadNextGitRepositoryTests COMMAND NotepadNextGitRepositoryTests)

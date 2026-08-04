@@ -62,6 +62,10 @@ modules:
         url: https://github.com/marzer/tomlplusplus.git
         commit: 30172438cee64926dc41fdd9c11fb3ba5b2ba9de
         dest: .cpm-cache/tomlplusplus/0a42
+      - type: git
+        url: https://github.com/libgit2/libgit2.git
+        commit: 26055f5af74ab1cf636d272e8a34315496d3f06f
+        dest: .cpm-cache/libgit2/7ca6
 
     post-install:
       - sed -i -e 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' -e 's|^Exec=NotepadNext %U$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop

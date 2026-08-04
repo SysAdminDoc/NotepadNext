@@ -67,6 +67,7 @@
 #include "SchemaManager.h"
 #include "SchemaValidator.h"
 #include "MarkdownPreviewDock.h"
+#include "GitManager.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -214,6 +215,52 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     ui->menuView->addAction(markdownPreview->toggleViewAction());
     connect(this, &MainWindow::editorActivated, markdownPreview, &MarkdownPreviewDock::setEditor);
     connect(dockedEditor, &DockedEditor::editorClosed, markdownPreview, &MarkdownPreviewDock::editorClosed);
+
+    stageCurrentFileAction = new QAction(tr("Stage Current File"), this);
+    stageCurrentFileAction->setObjectName(QStringLiteral("actionStageCurrentFile"));
+    unstageCurrentFileAction = new QAction(tr("Unstage Current File"), this);
+    unstageCurrentFileAction->setObjectName(QStringLiteral("actionUnstageCurrentFile"));
+    addAction(stageCurrentFileAction);
+    addAction(unstageCurrentFileAction);
+    ui->menuFile->insertSeparator(ui->actionClose);
+    ui->menuFile->insertAction(ui->actionClose, stageCurrentFileAction);
+    ui->menuFile->insertAction(ui->actionClose, unstageCurrentFileAction);
+
+    connect(stageCurrentFileAction, &QAction::triggered, this, [this]() {
+        ScintillaNext *editor = currentEditor();
+        QString error;
+        if (!this->app->getGitManager()->stageFile(editor, &error)) {
+            QMessageBox::warning(this, tr("Git"), error);
+            return;
+        }
+        statusBar()->showMessage(tr("Staged %1").arg(QFileInfo(editor->getFilePath()).fileName()), 3000);
+    });
+    connect(unstageCurrentFileAction, &QAction::triggered, this, [this]() {
+        ScintillaNext *editor = currentEditor();
+        QString error;
+        if (!this->app->getGitManager()->unstageFile(editor, &error)) {
+            QMessageBox::warning(this, tr("Git"), error);
+            return;
+        }
+        statusBar()->showMessage(tr("Unstaged %1").arg(QFileInfo(editor->getFilePath()).fileName()), 3000);
+    });
+
+    blameGutterAction = new QAction(tr("Git Blame Gutter"), this);
+    blameGutterAction->setObjectName(QStringLiteral("actionGitBlameGutter"));
+    blameGutterAction->setCheckable(true);
+    blameGutterAction->setChecked(this->app->getGitManager()->blameGutterVisible());
+    addAction(blameGutterAction);
+    ui->menuView->addSeparator();
+    ui->menuView->addAction(blameGutterAction);
+    connect(blameGutterAction, &QAction::toggled, this, [this](bool visible) {
+        this->app->getGitManager()->setBlameGutterVisible(visible);
+        updateGui(currentEditor());
+    });
+    connect(this->app->getGitManager(), &GitManager::gitStateChanged, this, [this](ScintillaNext *editor) {
+        if (editor == currentEditor()) {
+            updateGui(editor);
+        }
+    });
 
     // Set up the menus
     connect(ui->actionNew, &QAction::triggered, this, &MainWindow::newFile);
@@ -2005,6 +2052,13 @@ void MainWindow::updateGui(ScintillaNext *editor)
     updateSelectionBasedUi(editor);
     updateContentBasedUi(editor);
     updateLanguageBasedUi(editor);
+
+    if (stageCurrentFileAction && unstageCurrentFileAction) {
+        const GitRepository::FileState state = app->getGitManager()->stateForEditor(editor);
+        const bool canUseGit = editor && editor->isFile() && state.inRepository && state.error.isEmpty();
+        stageCurrentFileAction->setEnabled(canUseGit && state.unstaged);
+        unstageCurrentFileAction->setEnabled(canUseGit && state.staged);
+    }
 }
 
 void MainWindow::updateDocumentBasedUi(Scintilla::Update updated)

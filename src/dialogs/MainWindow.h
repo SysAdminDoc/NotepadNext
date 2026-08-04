@@ -161,6 +161,9 @@ private:
     NotepadNextApplication *app = Q_NULLPTR;
     DockedEditor *dockedEditor = Q_NULLPTR;
     MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
+    QAction *stageCurrentFileAction = Q_NULLPTR;
+    QAction *unstageCurrentFileAction = Q_NULLPTR;
+    QAction *blameGutterAction = Q_NULLPTR;
 
     QScopedPointer<SearchResultsCollector> searchResults;
 

@@ -47,6 +47,23 @@ CPMAddPackage(
     DOWNLOAD_ONLY YES
 )
 
+CPMAddPackage(
+    NAME libgit2
+    GITHUB_REPOSITORY libgit2/libgit2
+    GIT_TAG 26055f5af74ab1cf636d272e8a34315496d3f06f
+    OPTIONS
+        "BUILD_SHARED_LIBS OFF"
+        "BUILD_TESTS OFF"
+        "BUILD_CLI OFF"
+        "BUILD_EXAMPLES OFF"
+        "USE_SSH OFF"
+        "USE_HTTPS OFF"
+        "USE_GSSAPI OFF"
+        "USE_NTLMCLIENT OFF"
+        "USE_BUNDLED_ZLIB ON"
+        "REGEX_BACKEND builtin"
+)
+
 add_subdirectory(lua)
 add_subdirectory(scintilla)
 add_subdirectory(lexilla)

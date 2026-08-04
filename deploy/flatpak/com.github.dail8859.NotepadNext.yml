@@ -70,6 +70,10 @@ modules:
         url: https://github.com/libssh2/libssh2.git
         commit: 3a735286108ad19e3b49c64ebcb66342f1f21df7
         dest: .cpm-cache/libssh2/2cc5
+      - type: git
+        url: https://github.com/quickjs-ng/quickjs.git
+        commit: fd0a0210b7be00957751871e7e01b8291268fc29
+        dest: .cpm-cache/quickjs/06d7
 
     post-install:
       - sed -i -e 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' -e 's|^Exec=NotepadNext %U$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop

@@ -66,6 +66,8 @@ qt_add_executable(NotepadNext
 	SessionJournal.h
 	SchemaValidator.h
 	SchemaManager.h
+	ScriptConsoleBridge.h
+	ScriptConsoleDock.h
 	SpinBoxDelegate.h
 	TranslationManager.h
 	ThemeManager.h
@@ -133,6 +135,8 @@ qt_add_executable(NotepadNext
 	SessionJournal.cpp
 	SchemaValidator.cpp
 	SchemaManager.cpp
+	ScriptConsoleBridge.cpp
+	ScriptConsoleDock.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	ThemeManager.cpp
@@ -258,8 +262,9 @@ target_include_directories(NotepadNext
         ${CMAKE_CURRENT_SOURCE_DIR}/docks
         ${CMAKE_CURRENT_SOURCE_DIR}/widgets
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
-        ${CPM_PACKAGE_libssh2_SOURCE_DIR}/include
+		${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
+		${CPM_PACKAGE_libssh2_SOURCE_DIR}/include
+		${CPM_PACKAGE_quickjs_SOURCE_DIR}
 )
 
 if(WIN32)
@@ -292,8 +297,9 @@ target_link_libraries(NotepadNext
         scintilla
         uchardet
 		yaml-cpp::yaml-cpp
-		libgit2package
+        libgit2package
 		libssh2::libssh2
+		qjs
 )
 
 if (NOTEPADNEXT_HAS_WEBENGINE)

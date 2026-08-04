@@ -48,6 +48,17 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
+    NAME quickjs
+    GITHUB_REPOSITORY quickjs-ng/quickjs
+    GIT_TAG fd0a0210b7be00957751871e7e01b8291268fc29
+    OPTIONS
+        "QJS_ENABLE_INSTALL OFF"
+        "QJS_BUILD_EXAMPLES OFF"
+        "QJS_BUILD_CLI_STATIC OFF"
+        "QJS_BUILD_LIBC OFF"
+)
+
+CPMAddPackage(
     NAME libgit2
     GITHUB_REPOSITORY libgit2/libgit2
     GIT_TAG 26055f5af74ab1cf636d272e8a34315496d3f06f

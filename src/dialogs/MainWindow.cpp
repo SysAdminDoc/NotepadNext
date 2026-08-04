@@ -72,6 +72,7 @@
 #include "PortableMode.h"
 #include "TerminalDock.h"
 #include "FindInFilesDock.h"
+#include "ScriptConsoleDock.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -579,6 +580,25 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         if (editor && editor->isFile()) {
             terminalDock->setWorkingDirectory(editor->getFileInfo().dir().absolutePath());
         }
+    });
+
+    scriptConsoleDock = new ScriptConsoleDock(app, this);
+    scriptConsoleDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, scriptConsoleDock);
+    QAction *scriptConsoleAction = scriptConsoleDock->toggleViewAction();
+    scriptConsoleAction->setObjectName(QStringLiteral("actionScriptingConsole"));
+    scriptConsoleAction->setText(tr("Scripting Console"));
+    scriptConsoleAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Alt+J")));
+    scriptConsoleAction->setShortcutContext(Qt::WindowShortcut);
+    ui->menuView->addAction(scriptConsoleAction);
+
+    auto *runScriptAction = new QAction(tr("Run Script File..."), this);
+    runScriptAction->setObjectName(QStringLiteral("actionRunScriptFile"));
+    addAction(runScriptAction);
+    ui->menuFile->insertAction(ui->actionClose, runScriptAction);
+    connect(runScriptAction, &QAction::triggered, this, [this]() {
+        scriptConsoleDock->runScriptFile();
+        scriptConsoleDock->focusInput();
     });
 
     findInFilesDock = new FindInFilesDock(this);

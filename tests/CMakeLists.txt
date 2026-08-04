@@ -217,6 +217,24 @@ set_tests_properties(NotepadNextMarkdownPreviewTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
 
+qt_add_executable(NotepadNextPortableModeTests
+    PortableModeTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/PortableMode.cpp
+)
+
+target_include_directories(NotepadNextPortableModeTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextPortableModeTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextPortableModeTests COMMAND NotepadNextPortableModeTests)
+
 qt_add_executable(NotepadNextGitRepositoryTests
     GitRepositoryTests.cpp
     ${CMAKE_SOURCE_DIR}/src/GitRepository.cpp

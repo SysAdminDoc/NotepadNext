@@ -32,6 +32,7 @@
 #include "SchemaManager.h"
 #include "GitManager.h"
 #include "SftpManager.h"
+#include "PortableMode.h"
 
 #include "LuaState.h"
 #include "lua.hpp"
@@ -530,6 +531,10 @@ QStringList NotepadNextApplication::debugInfo() const
     info.append(QStringLiteral("File Path: %1").arg(applicationFilePath()));
     info.append(QStringLiteral("Arguments: %1").arg(arguments().join(' ')));
     info.append(QStringLiteral("Config File: %1").arg(ApplicationSettings().fileName()));
+    info.append(QStringLiteral("Portable Mode: %1").arg(PortableMode::isEnabled() ? QStringLiteral("enabled") : QStringLiteral("disabled")));
+    if (PortableMode::isEnabled()) {
+        info.append(QStringLiteral("Portable Profile: %1").arg(PortableMode::profileDirectory()));
+    }
 
     return info;
 }

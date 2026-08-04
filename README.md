@@ -23,6 +23,8 @@ Windows packages are available as an installer or a stand-alone zip file on the 
 winget install dail8859.NotepadNext
 ```
 
+The stand-alone zip automatically uses a portable profile when launched from a removable drive. Creating a `portable` directory beside `NotepadNext.exe` enables the same behavior on a fixed drive; settings, session recovery data, and other profile data stay beside the executable and the portable update check does not access installer registry settings.
+
 ## Linux
 Linux packages can be obtained by downloading the stand-alone AppImage on the [release](https://github.com/dail8859/NotepadNext/releases) page or by installing the [flatpak](https://flathub.org/apps/details/com.github.dail8859.NotepadNext) by executing:
 

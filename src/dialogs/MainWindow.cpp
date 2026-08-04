@@ -69,6 +69,7 @@
 #include "MarkdownPreviewDock.h"
 #include "GitManager.h"
 #include "SftpManager.h"
+#include "PortableMode.h"
 #include "TerminalDock.h"
 #include "FindInFilesDock.h"
 
@@ -2701,9 +2702,12 @@ void MainWindow::initUpdateCheck()
 #ifdef QT_DEBUG
     if (true) {
 #else
-    QSettings registry(QSettings::NativeFormat, QSettings::UserScope, QApplication::organizationName(), QApplication::applicationName());
-    const bool autoUpdatesEnabled = registry.value("AutoUpdate", 0).toBool();
-    qInfo("AutoUpdates: %d", autoUpdatesEnabled);
+    bool autoUpdatesEnabled = PortableMode::isEnabled();
+    if (!PortableMode::isEnabled()) {
+        QSettings registry(QSettings::NativeFormat, QSettings::UserScope, QApplication::organizationName(), QApplication::applicationName());
+        autoUpdatesEnabled = registry.value("AutoUpdate", 0).toBool();
+        qInfo("AutoUpdates: %d", autoUpdatesEnabled);
+    }
 
     if (autoUpdatesEnabled) {
 #endif

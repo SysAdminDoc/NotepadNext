@@ -24,6 +24,7 @@
 #include <QDataStream>
 
 #include "NotepadNextApplication.h"
+#include "PortableMode.h"
 
 int main(int argc, char *argv[])
 {
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
 
     // Default settings format
     QSettings::setDefaultFormat(QSettings::IniFormat);
+    PortableMode::configure(QString::fromLocal8Bit(argv[0]));
 
     NotepadNextApplication app(argc, argv);
 

@@ -23,6 +23,7 @@
 #include "SessionManager.h"
 #include "SessionJournal.h"
 #include "SftpManager.h"
+#include "PortableMode.h"
 #include "EditorManager.h"
 #include "NotepadNextApplication.h"
 
@@ -110,7 +111,9 @@ void SessionManager::setSessionFileTypes(SessionFileTypes types)
 
 QDir SessionManager::sessionDirectory() const
 {
-    QDir d(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    QDir d(PortableMode::isEnabled()
+               ? PortableMode::profileDirectory()
+               : QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
 
     d.mkpath("session");
     d.cd("session");

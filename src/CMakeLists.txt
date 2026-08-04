@@ -134,6 +134,8 @@ qt_add_executable(NotepadNext
 	decorators/MarkerAppDecorator.h
 	decorators/SmartHighlighter.cpp
 	decorators/SmartHighlighter.h
+	decorators/StickyScroll.cpp
+	decorators/StickyScroll.h
 	decorators/SurroundSelection.cpp
 	decorators/SurroundSelection.h
 	decorators/URLFinder.cpp

@@ -1,0 +1,60 @@
+app-id: com.github.dail8859.NotepadNext
+runtime: org.kde.Platform
+runtime-version: '6.10'
+sdk: org.kde.Sdk
+
+command: NotepadNext
+rename-icon: NotepadNext
+rename-desktop-file: NotepadNext.desktop
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # Keep QSettings and AppDataLocation in the Flatpak-scoped portable profile.
+  - --persist=.config/NotepadNext
+  - --persist=.local/share/NotepadNext
+
+modules:
+  - name: NotepadNext
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DAPP_DISTRIBUTION=Flatpak
+      - -DBUILD_TESTING=OFF
+      - -DNOTEPADNEXT_ENABLE_TREE_SITTER=OFF
+    build-options:
+      strip: true
+    sources:
+      - type: git
+        url: https://github.com/dail8859/NotepadNext.git
+        tag: v0.14
+        commit: 0c63b760ae82bb0eabbf070030454bae9df9ab5b
+        x-checker-data:
+          type: git
+          tag-pattern: ^v([\d.]+)$
+
+      # Populate the CPM source cache so the Flatpak build never downloads
+      # dependencies during the CMake configure step.
+      - type: git
+        url: https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System.git
+        commit: 34b68d6eab1556cf851d24e033909332771f3dfe
+        dest: .cpm-cache/ads/9c5e
+      - type: git
+        url: https://github.com/alex-spataru/QSimpleUpdater.git
+        commit: 8e7017f7fbdc2b4b1a26ed1eef9ebcba6a50639c
+        dest: .cpm-cache/qsimpleupdater/37ff
+      - type: git
+        url: https://github.com/itay-grudev/SingleApplication.git
+        commit: 494772e98cef0aa88124f154feb575cc60b08b38
+        dest: .cpm-cache/singleapplication/91c3
+      - type: git
+        url: https://github.com/editorconfig/editorconfig-core-qt.git
+        commit: ab62f0554abf2bbe4d45427b36a8b2f81ca7b4ab
+        dest: .cpm-cache/editorconfig_core_qt/87f1
+
+    post-install:
+      - sed -i 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop
+      - install -D -m644 deploy/linux/com.github.dail8859.NotepadNext.metainfo.xml /app/share/metainfo/com.github.dail8859.NotepadNext.metainfo.xml

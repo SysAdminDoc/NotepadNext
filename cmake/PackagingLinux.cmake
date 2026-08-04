@@ -1,5 +1,25 @@
 message(STATUS "Configuring Linux packaging")
 
+install(TARGETS NotepadNext
+    RUNTIME DESTINATION bin
+)
+install(FILES
+    ${PROJECT_SOURCE_DIR}/deploy/linux/NotepadNext.desktop
+    DESTINATION share/applications
+)
+install(FILES
+    ${PROJECT_SOURCE_DIR}/icon/NotepadNext.svg
+    DESTINATION share/icons/hicolor/scalable/apps
+)
+install(FILES
+    ${PROJECT_SOURCE_DIR}/icon/NotepadNext.svg
+    DESTINATION share/icons/hicolor/scalable/mimetypes
+)
+
+if(NOT APP_DISTRIBUTION STREQUAL "AppImage")
+    return()
+endif()
+
 set(APPDIR ${CMAKE_BINARY_DIR}/AppDir)
 set(APPDIR_USR ${APPDIR}/usr)
 
@@ -45,22 +65,6 @@ endif()
 
 message(STATUS "Using qmake for AppImage packaging: ${APPIMAGE_QMAKE}")
 list(APPEND APPIMAGE_ENV_VARS QMAKE=${APPIMAGE_QMAKE})
-
-install(TARGETS NotepadNext
-    RUNTIME DESTINATION bin
-)
-install(FILES
-    ${PROJECT_SOURCE_DIR}/deploy/linux/NotepadNext.desktop
-    DESTINATION share/applications
-)
-install(FILES
-    ${PROJECT_SOURCE_DIR}/icon/NotepadNext.svg
-    DESTINATION share/icons/hicolor/scalable/apps
-)
-install(FILES
-    ${PROJECT_SOURCE_DIR}/icon/NotepadNext.svg
-    DESTINATION share/icons/hicolor/scalable/mimetypes
-)
 
 add_custom_target(appdir
     COMMAND ${CMAKE_COMMAND}

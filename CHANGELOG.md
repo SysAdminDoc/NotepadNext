@@ -30,6 +30,8 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Windows custom frameless title bar with native resize hit-testing, window controls, and guarded DWM Mica/rounded-corner attributes.
 - Added: Explicit Qt/HarfBuzz programming-font shaping for standard and contextual OpenType ligature features, with a Qt-version compatibility guard.
 - Added: An in-tree Homebrew cask mirror for the current macOS release, including release live-checking and deterministic DMG verification.
+- Added: An updated CMake-based Flatpak manifest pinned to v0.14, with offline CPM dependency sources, portal file forwarding, and a persistent app-scoped profile.
+- Fixed: Linux packaging now keeps AppImage-only qmake discovery out of normal and Flatpak CMake configuration.
 
 ## [v0.1.0] - %Y->- (HEAD -> master)
 

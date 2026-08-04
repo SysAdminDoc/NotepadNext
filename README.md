@@ -30,6 +30,8 @@ Linux packages can be obtained by downloading the stand-alone AppImage on the [r
 flatpak install flathub com.github.dail8859.NotepadNext
 ```
 
+The maintained Flatpak manifest is [`deploy/flatpak/com.github.dail8859.NotepadNext.yml`](deploy/flatpak/com.github.dail8859.NotepadNext.yml). It forwards files through the desktop portal and keeps settings and session data in the Flatpak-scoped portable profile. Build it locally with `flatpak-builder --user --install --force-clean build-flatpak deploy/flatpak/com.github.dail8859.NotepadNext.yml`.
+
 If you are using Ubuntu and prefer an up-to-date deb version, you can use the [PPA supporting Ubuntu 22.04 and newer](https://launchpad.net/~quentiumyt/+archive/ubuntu/notepadnext) provided by
 [Quentin Lienhardt](https://github.com/QuentiumYT). You can add it by executing:
 

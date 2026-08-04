@@ -76,6 +76,8 @@ The build includes the optional Tree-sitter JSON lexer by default. Disable it wi
 
 Editor language services are available when their server is installed on `PATH`: `clangd` for C/C++, `pyright-langserver` for Python, `rust-analyzer` for Rust, and `gopls` for Go. Diagnostics are shown as editor squiggles, hover information appears after briefly resting the pointer over a symbol, and `F12` requests go-to-definition. The editor continues to work normally when a server is not installed.
 
+JSON, YAML, and TOML documents can be validated against JSON Schema documents from the Search menu or command palette. Choose **Validate Document Against Schema...** to attach a schema to the current document, or use **Clear Document Schema** to return to automatic discovery. The editor also checks `<document>.schema.json`, `<document-name>.schema.json`, `.notepadnext-schema.json`, local `schema:`/`yaml-language-server` directives, and local `$schema` paths. Validation is debounced while editing and marks failures with squiggles; remote schema URLs are ignored so validation remains offline.
+
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.

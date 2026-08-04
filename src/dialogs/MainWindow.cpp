@@ -64,6 +64,8 @@
 #include "RecentFilesListMenuBuilder.h"
 #include "EditorManager.h"
 #include "LspManager.h"
+#include "SchemaManager.h"
+#include "SchemaValidator.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -138,6 +140,58 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         if (currentEditor() && this->app->getLspManager()) {
             this->app->getLspManager()->requestDefinition(currentEditor());
         }
+    });
+
+    auto *validateSchemaAction = new QAction(tr("Validate Document Against Schema..."), this);
+    validateSchemaAction->setObjectName(QStringLiteral("actionValidateDocumentAgainstSchema"));
+    addAction(validateSchemaAction);
+    ui->menuSearch->addAction(validateSchemaAction);
+    connect(validateSchemaAction, &QAction::triggered, this, [this]() {
+        ScintillaNext *editor = currentEditor();
+        if (!editor || !SchemaValidator::isSupportedLanguage(editor->languageName)) {
+            QMessageBox::information(this, tr("Schema Validation"), tr("Schema validation supports JSON, YAML, and TOML documents only."));
+            return;
+        }
+
+        const QString directory = editor->isFile()
+            ? QFileInfo(editor->getFilePath()).absolutePath()
+            : defaultDirectoryManager->getDefaultDirectory();
+        const QStringList schemaFiles = FileDialogHelpers::getOpenFileNames(
+            this, tr("Select JSON Schema"), directory,
+            tr("JSON Schema (*.json *.schema.json);;All files (*)"));
+        if (schemaFiles.isEmpty()) {
+            return;
+        }
+
+        const SchemaValidator::Result result = this->app->getSchemaManager()->setSchemaFile(editor, schemaFiles.constFirst());
+        if (result.valid) {
+            QMessageBox::information(this, tr("Schema Validation"),
+                                     tr("The document is valid against %1.").arg(QFileInfo(schemaFiles.constFirst()).fileName()));
+            return;
+        }
+
+        QStringList messages;
+        for (const SchemaValidator::Diagnostic &diagnostic : result.diagnostics) {
+            messages.append(tr("Line %1, column %2: %3").arg(diagnostic.line + 1).arg(diagnostic.column + 1).arg(diagnostic.message));
+            if (messages.size() == 10) {
+                break;
+            }
+        }
+        QMessageBox::warning(this, tr("Schema Validation"),
+                             tr("The document has schema errors:\n\n%1").arg(messages.join('\n')));
+    });
+
+    auto *clearSchemaAction = new QAction(tr("Clear Document Schema"), this);
+    clearSchemaAction->setObjectName(QStringLiteral("actionClearDocumentSchema"));
+    addAction(clearSchemaAction);
+    ui->menuSearch->addAction(clearSchemaAction);
+    connect(clearSchemaAction, &QAction::triggered, this, [this]() {
+        if (!currentEditor()) {
+            return;
+        }
+        this->app->getSchemaManager()->clearSchemaFile(currentEditor());
+        QMessageBox::information(this, tr("Schema Validation"),
+                                 tr("The explicit schema mapping for this document has been cleared."));
     });
 
     qInfo("setupUi Completed");

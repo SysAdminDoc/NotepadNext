@@ -55,6 +55,7 @@ qt_add_executable(NotepadNext
 	SessionManager.h
 	SessionJournal.h
 	SchemaValidator.h
+	SchemaManager.h
 	SpinBoxDelegate.h
 	TranslationManager.h
 	ThemeManager.h
@@ -109,6 +110,7 @@ qt_add_executable(NotepadNext
 	SessionManager.cpp
 	SessionJournal.cpp
 	SchemaValidator.cpp
+	SchemaManager.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	ThemeManager.cpp

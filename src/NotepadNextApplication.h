@@ -38,6 +38,7 @@ class SessionManager;
 class TranslationManager;
 class NppPluginManager;
 class LspManager;
+class SchemaManager;
 
 
 class NotepadNextApplication : public SingleApplication
@@ -54,6 +55,7 @@ public:
     SessionManager *getSessionManager() const;
     TranslationManager *getTranslationManager() const { return translationManager; };
     LspManager *getLspManager() const { return lspManager; }
+    SchemaManager *getSchemaManager() const { return schemaManager; }
 
     LuaState *getLuaState() const { return luaState; }
     QString getFileDialogFilter() const;
@@ -93,6 +95,7 @@ private:
     TranslationManager *translationManager;
     NppPluginManager *nppPluginManager = Q_NULLPTR;
     LspManager *lspManager = Q_NULLPTR;
+    SchemaManager *schemaManager = Q_NULLPTR;
 
     LuaState *luaState = Q_NULLPTR;
 

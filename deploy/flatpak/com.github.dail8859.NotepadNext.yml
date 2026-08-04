@@ -54,6 +54,14 @@ modules:
         url: https://github.com/editorconfig/editorconfig-core-qt.git
         commit: ab62f0554abf2bbe4d45427b36a8b2f81ca7b4ab
         dest: .cpm-cache/editorconfig_core_qt/87f1
+      - type: git
+        url: https://github.com/jbeder/yaml-cpp.git
+        commit: 56e3bb550c91fd7005566f19c079cb7a503223cf
+        dest: .cpm-cache/yaml-cpp/7ad1
+      - type: git
+        url: https://github.com/marzer/tomlplusplus.git
+        commit: 30172438cee64926dc41fdd9c11fb3ba5b2ba9de
+        dest: .cpm-cache/tomlplusplus/0a42
 
     post-install:
       - sed -i -e 's|^Exec=NotepadNext %f$|Exec=NotepadNext @@u %U @@|' -e 's|^Exec=NotepadNext %U$|Exec=NotepadNext @@u %U @@|' /app/share/applications/NotepadNext.desktop

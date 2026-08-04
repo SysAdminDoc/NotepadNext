@@ -45,8 +45,10 @@ MacOS disk images can be downloaded from the [release](https://github.com/dail88
 It can also be installed using brew:
 ```bash
 brew tap dail8859/notepadnext
-brew install notepadnext
+brew install --no-quarantine notepadnext
 ```
+
+The maintained cask mirror is available in [`Casks/notepadnext.rb`](Casks/notepadnext.rb).
 
 #### MacOS Tweaks
 

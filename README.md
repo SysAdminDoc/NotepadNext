@@ -1,6 +1,7 @@
 # Notepad Next
 
 ![Build Notepad Next](https://github.com/dail8859/NotepadNext/workflows/Build%20Notepad%20Next/badge.svg)
+![Version](https://img.shields.io/badge/version-0.15-blue)
 
 A cross-platform, reimplementation of Notepad++.
 

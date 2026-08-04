@@ -2,7 +2,7 @@
 
 All notable changes to NotepadNext will be documented in this file.
 
-## Unreleased
+## [v0.15] - 2026-08-03
 
 - Fixed: Session recovery now commits unsaved buffers through an atomic, generation-based journal with a backward-compatible legacy loader.
 - Added: QtTest coverage for session journal round-tripping and buffer-path traversal protection.

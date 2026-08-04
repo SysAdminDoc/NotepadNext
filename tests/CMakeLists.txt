@@ -236,3 +236,21 @@ target_link_libraries(NotepadNextGitRepositoryTests
 )
 
 add_test(NAME NotepadNextGitRepositoryTests COMMAND NotepadNextGitRepositoryTests)
+
+qt_add_executable(NotepadNextTerminalProcessTests
+    TerminalProcessTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/TerminalProcess.cpp
+)
+
+target_include_directories(NotepadNextTerminalProcessTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextTerminalProcessTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextTerminalProcessTests COMMAND NotepadNextTerminalProcessTests)

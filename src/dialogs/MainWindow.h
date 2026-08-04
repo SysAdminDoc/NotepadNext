@@ -47,6 +47,7 @@ class Converter;
 class DefaultDirectoryManager;
 class TabsQuickActionsBar;
 class MarkdownPreviewDock;
+class TerminalDock;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
 #endif
@@ -161,6 +162,7 @@ private:
     NotepadNextApplication *app = Q_NULLPTR;
     DockedEditor *dockedEditor = Q_NULLPTR;
     MarkdownPreviewDock *markdownPreview = Q_NULLPTR;
+    TerminalDock *terminalDock = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;
     QAction *unstageCurrentFileAction = Q_NULLPTR;
     QAction *blameGutterAction = Q_NULLPTR;

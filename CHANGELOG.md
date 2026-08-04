@@ -28,6 +28,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Added: Offline JSON Schema validation for JSON, YAML, and TOML documents, with local schema discovery, explicit Search-menu selection, debounced editor diagnostics, and parser/keyword coverage.
 - Added: Live Markdown and MDX preview in a docked split pane, with active-editor tracking, debounced updates, local resource bases, and an optional Qt WebEngine backend.
 - Added: Local libgit2 integration with automatic diff markers, file-level stage/unstage actions, and an optional blame gutter for the active document.
+- Added: An integrated terminal dock backed by QProcess, with active-document working directories and shell lifecycle controls.
 - Added: Persisted Fusion, Material, and Fluent theme variants with immediate View-menu switching, palette/QSS styling, and custom CSS overrides.
 - Added: Selectable Default, Nord, Catppuccin, and GitHub Dark icon packs with semantic accent colors and transparency-preserving recoloring.
 - Added: Windows custom frameless title bar with native resize hit-testing, window controls, and guarded DWM Mica/rounded-corner attributes.

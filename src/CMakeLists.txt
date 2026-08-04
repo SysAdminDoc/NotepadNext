@@ -63,6 +63,8 @@ qt_add_executable(NotepadNext
 	SpinBoxDelegate.h
 	TranslationManager.h
 	ThemeManager.h
+	TerminalDock.h
+	TerminalProcess.h
 	UndoAction.h
 	ZoomEventWatcher.h
 	resources.qrc
@@ -122,6 +124,8 @@ qt_add_executable(NotepadNext
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
 	ThemeManager.cpp
+	TerminalDock.cpp
+	TerminalProcess.cpp
 	UndoAction.cpp
 	ZoomEventWatcher.cpp
 	decorators/ApplicationDecorator.cpp

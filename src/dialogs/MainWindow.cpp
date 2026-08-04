@@ -68,6 +68,7 @@
 #include "SchemaValidator.h"
 #include "MarkdownPreviewDock.h"
 #include "GitManager.h"
+#include "TerminalDock.h"
 
 #include "LuaConsoleDock.h"
 #include "LanguageInspectorDock.h"
@@ -548,6 +549,22 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         editor->verticalCentreCaret();
 
         editor->grabFocus();
+    });
+
+    terminalDock = new TerminalDock(this);
+    terminalDock->hide();
+    addDockWidget(Qt::BottomDockWidgetArea, terminalDock);
+    QAction *terminalAction = terminalDock->toggleViewAction();
+    terminalAction->setObjectName(QStringLiteral("actionIntegratedTerminal"));
+    terminalAction->setText(tr("Integrated Terminal"));
+    terminalAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Alt+T")));
+    terminalAction->setShortcutContext(Qt::WindowShortcut);
+    ui->menuView->addAction(terminalAction);
+    terminalDock->setWorkingDirectory(defaultDirectoryManager->getDefaultDirectory());
+    connect(this, &MainWindow::editorActivated, this, [this](ScintillaNext *editor) {
+        if (editor && editor->isFile()) {
+            terminalDock->setWorkingDirectory(editor->getFileInfo().dir().absolutePath());
+        }
     });
 
     connect(ui->actionFind, &QAction::triggered, this, [this]() {

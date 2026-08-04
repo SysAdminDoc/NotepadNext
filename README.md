@@ -82,6 +82,8 @@ Markdown and MDX documents can be previewed live from **View > Markdown Preview*
 
 Git repositories get a local diff gutter automatically when a file is open. **File > Stage Current File** and **File > Unstage Current File** update the index for the active document without invoking a Git process. **View > Git Blame Gutter** shows compact author and commit labels for the active file, including unsaved working-tree lines.
 
+The **View > Integrated Terminal** pane runs the platform shell through Qt's `QProcess`, starts lazily in the active document directory, and keeps command output in the dock. Use Restart or Stop to control the shell without leaving the editor.
+
 The View menu provides Fusion, Material, and Fluent theme variants, plus Default, Nord, Catppuccin, and GitHub Dark icon packs. Both selections are stored with the application settings and apply immediately; a `custom.css` file beside the settings file is still loaded last so local overrides take precedence.
 
 On Windows, the main window uses a custom frameless title bar with native resize/maximize behavior and requests Mica backdrop and rounded-corner effects when the installed DWM version supports them.

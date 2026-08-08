@@ -20,6 +20,7 @@
 #include "MainWindow.h"
 #include "BookMarkDecorator.h"
 #include "DefaultDirectoryManager.h"
+#include "DirectoryDropScanner.h"
 #include "MarkerAppDecorator.h"
 #include "ScintillaSorter.h"
 #include "URLFinder.h"
@@ -39,9 +40,11 @@
 #include <QInputDialog>
 #include <QPrintPreviewDialog>
 #include <QPrinter>
-#include <QDirIterator>
+#include <QPointer>
 #include <QProcess>
+#include <QProgressDialog>
 #include <QScreen>
+#include <QThread>
 #include <QFontDatabase>
 #include <QStyleFactory>
 #include <QVBoxLayout>
@@ -1330,6 +1333,9 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
 MainWindow::~MainWindow()
 {
+    if (directoryDropCancellation) {
+        directoryDropCancellation->store(true);
+    }
     delete ui;
 }
 
@@ -1593,15 +1599,16 @@ ScintillaNext *MainWindow::getInitialEditor()
     return Q_NULLPTR;
 }
 
-void MainWindow::openFileList(const QStringList &fileNames)
+int MainWindow::openFileList(const QStringList &fileNames)
 {
     qInfo(Q_FUNC_INFO);
 
     if (fileNames.size() == 0)
-        return;
+        return 0;
 
     QList<ScintillaNext *> openedEditors;
     ScintillaNext *initialEditor = getInitialEditor();
+    int openedCount = 0;
 
     for (const QString &filePath : fileNames) {
         qInfo("%s", qUtf8Printable(filePath));
@@ -1618,6 +1625,7 @@ void MainWindow::openFileList(const QStringList &fileNames)
                     hexEditorDock->show();
                     hexEditorDock->raise();
                     hexEditorDock->focusTable();
+                    ++openedCount;
                 }
                 continue;
             }
@@ -1643,6 +1651,7 @@ void MainWindow::openFileList(const QStringList &fileNames)
 
         if (editor) {
             openedEditors.append(editor);
+            ++openedCount;
         }
     }
 
@@ -1654,6 +1663,8 @@ void MainWindow::openFileList(const QStringList &fileNames)
             initialEditor->close();
         }
     }
+
+    return openedCount;
 }
 
 bool MainWindow::checkEditorsBeforeClose(const QVector<ScintillaNext *> &editors)
@@ -3027,28 +3038,127 @@ void MainWindow::dropEvent(QDropEvent *event)
     qInfo(Q_FUNC_INFO);
 
     if (event->mimeData()->hasUrls()) {
-        // Get the urls into a stringlist
-        QStringList fileNames;
+        QStringList paths;
+        bool containsDirectory = false;
         for (const QUrl &url : event->mimeData()->urls()) {
             if (url.isLocalFile()) {
-                QFileInfo info(url.toLocalFile());
-
-                if (info.exists()) {
-                    if (info.isDir()) {
-                        QDirIterator it(url.toLocalFile(), QDir::Files, QDirIterator::FollowSymlinks| QDirIterator::Subdirectories);
-                        while (it.hasNext()) {
-                            fileNames << it.next();
-                        }
-                    }
-                    else {
-                        fileNames.append(url.toLocalFile());
-                    }
+                const QString path = url.toLocalFile();
+                if (path.isEmpty()) {
+                    continue;
                 }
+
+                paths.append(path);
+                const QFileInfo info(path);
+                containsDirectory = containsDirectory || (info.exists() && info.isDir() && !info.isSymLink());
             }
         }
 
-        openFileList(fileNames);
-        bringWindowToForeground();
+        if (paths.isEmpty()) {
+            event->acceptProposedAction();
+            return;
+        }
+
+        const auto finishDrop = [this](const DirectoryDropScanner::Result &result,
+                                       const QPointer<QProgressDialog> &progress) {
+            if (progress) {
+                progress->close();
+                progress->deleteLater();
+            }
+
+            directoryDropScanActive = false;
+            directoryDropCancellation.reset();
+
+            const int openedCount = openFileList(result.files);
+            if (openedCount > 0) {
+                bringWindowToForeground();
+            }
+
+            if (result.skipped.isEmpty() && !result.cancelled && !result.budgetExceeded
+                && openedCount == result.files.size()) {
+                return;
+            }
+
+            QString state;
+            if (result.cancelled) {
+                state = tr(" (cancelled)");
+            }
+            else if (result.budgetExceeded) {
+                state = tr(" (traversal limit reached)");
+            }
+
+            statusBar()->showMessage(
+                tr("Opened %1 of %2 file(s); skipped %3 item(s)%4")
+                    .arg(openedCount)
+                    .arg(result.files.size())
+                    .arg(result.skipped.size())
+                    .arg(state),
+                15000);
+
+            const int logLimit = qMin(20, result.skipped.size());
+            for (int i = 0; i < logLimit; ++i) {
+                const auto &item = result.skipped.at(i);
+                qWarning("Skipped dropped path %s: %s",
+                         qUtf8Printable(item.path),
+                         qUtf8Printable(item.reason));
+            }
+            if (result.skipped.size() > logLimit) {
+                qWarning("Skipped %d additional dropped paths", result.skipped.size() - logLimit);
+            }
+        };
+
+        if (containsDirectory) {
+            if (directoryDropScanActive) {
+                statusBar()->showMessage(tr("A dropped directory is already being scanned."), 5000);
+                event->acceptProposedAction();
+                return;
+            }
+
+            directoryDropScanActive = true;
+            directoryDropCancellation = std::make_shared<std::atomic_bool>(false);
+            const auto cancellation = directoryDropCancellation;
+
+            auto *progress = new QProgressDialog(
+                tr("Scanning dropped directories..."), tr("Cancel"), 0, 0, this);
+            progress->setWindowTitle(tr("Opening dropped files"));
+            progress->setWindowModality(Qt::WindowModal);
+            progress->setAutoClose(false);
+            progress->setAutoReset(false);
+            progress->setMinimumDuration(0);
+            progress->show();
+
+            connect(progress, &QProgressDialog::canceled, this, [cancellation]() {
+                cancellation->store(true);
+            });
+
+            const QPointer<MainWindow> target(this);
+            const QPointer<QProgressDialog> progressGuard(progress);
+            QThread *worker = QThread::create(
+                [target, progressGuard, paths, cancellation, finishDrop]() {
+                    const DirectoryDropScanner::Result result = DirectoryDropScanner::scan(
+                        paths,
+                        {},
+                        [cancellation]() { return cancellation->load(); });
+
+                    if (!target) {
+                        return;
+                    }
+
+                    QMetaObject::invokeMethod(
+                        target.data(),
+                        [target, progressGuard, result, finishDrop]() {
+                            if (target) {
+                                finishDrop(result, progressGuard);
+                            }
+                        },
+                        Qt::QueuedConnection);
+                });
+            connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+            worker->start();
+        }
+        else {
+            finishDrop(DirectoryDropScanner::scan(paths), {});
+        }
+
         event->acceptProposedAction();
     }
     else if (event->mimeData()->hasText()) {

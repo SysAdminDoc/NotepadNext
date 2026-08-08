@@ -446,3 +446,21 @@ add_test(NAME NotepadNextExternalFileChangeTests COMMAND NotepadNextExternalFile
 set_tests_properties(NotepadNextExternalFileChangeTests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+
+qt_add_executable(NotepadNextDirectoryDropScannerTests
+    DirectoryDropScannerTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/DirectoryDropScanner.cpp
+)
+
+target_include_directories(NotepadNextDirectoryDropScannerTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextDirectoryDropScannerTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextDirectoryDropScannerTests COMMAND NotepadNextDirectoryDropScannerTests)

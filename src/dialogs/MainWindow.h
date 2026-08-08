@@ -27,6 +27,9 @@
 #include <QIcon>
 #include <QToolButton>
 
+#include <atomic>
+#include <memory>
+
 #include "DockedEditor.h"
 
 #include "MacroManager.h"
@@ -199,7 +202,7 @@ private:
     void applyCustomShortcuts();
     void initUpdateCheck();
     ScintillaNext *getInitialEditor();
-    void openFileList(const QStringList &fileNames);
+    int openFileList(const QStringList &fileNames);
     bool checkEditorsBeforeClose(const QVector<ScintillaNext *> &editors);
     bool checkFileForModification(ScintillaNext *editor);
     bool resolveExternalSaveConflict(ScintillaNext *editor);
@@ -241,6 +244,8 @@ private:
     ZoomEventWatcher *zoomEventWatcher;
     int zoomLevel = 0;
     int contextMenuPos = 0;
+    bool directoryDropScanActive = false;
+    std::shared_ptr<std::atomic_bool> directoryDropCancellation;
     QMenu *buildMenu(QStringList actionNames);
 };
 

@@ -11,6 +11,7 @@ qt_add_executable(NotepadNext
 	Converter.h
 	DebugManager.h
 	DefaultDirectoryManager.h
+	DirectoryDropScanner.h
 	DockedEditor.h
 	DockedEditorTitleBar.h
 
@@ -93,6 +94,7 @@ qt_add_executable(NotepadNext
 	Converter.cpp
 	DebugManager.cpp
 	DefaultDirectoryManager.cpp
+	DirectoryDropScanner.cpp
 	DockedEditor.cpp
 
 	EditorManager.cpp

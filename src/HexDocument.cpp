@@ -17,10 +17,10 @@
  */
 
 #include "HexDocument.h"
+#include "AtomicFileWriter.h"
 
 #include <QFile>
 #include <QFileInfo>
-#include <QSaveFile>
 #include <QTextCodec>
 
 #include <memory>
@@ -132,14 +132,9 @@ bool HexDocument::save(QString *error)
         return false;
     }
 
-    QSaveFile file(path);
-    file.setDirectWriteFallback(false);
-    if (!file.open(QIODevice::WriteOnly)) {
-        setError(error, file.errorString());
-        return false;
-    }
-    if (file.write(bytes) != bytes.size() || !file.commit()) {
-        setError(error, file.errorString());
+    const AtomicFileWriter::Result result = AtomicFileWriter::write(path, bytes);
+    if (!result.succeeded()) {
+        setError(error, result.errorString);
         return false;
     }
 

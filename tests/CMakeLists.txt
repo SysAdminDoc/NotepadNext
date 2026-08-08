@@ -16,6 +16,24 @@ target_link_libraries(NotepadNextSessionJournalTests
 
 add_test(NAME NotepadNextSessionJournalTests COMMAND NotepadNextSessionJournalTests)
 
+qt_add_executable(NotepadNextAtomicFileWriterTests
+    AtomicFileWriterTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/AtomicFileWriter.cpp
+)
+
+target_include_directories(NotepadNextAtomicFileWriterTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextAtomicFileWriterTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextAtomicFileWriterTests COMMAND NotepadNextAtomicFileWriterTests)
+
 qt_add_executable(NotepadNextCommandPaletteTests
     CommandPaletteTests.cpp
     ${CMAKE_SOURCE_DIR}/src/CommandPaletteFilter.cpp
@@ -75,6 +93,7 @@ qt_add_executable(NotepadNextHexDocumentTests
     HexDocumentTests.cpp
     ${CMAKE_SOURCE_DIR}/src/HexDocument.cpp
     ${CMAKE_SOURCE_DIR}/src/HexTableModel.cpp
+    ${CMAKE_SOURCE_DIR}/src/AtomicFileWriter.cpp
 )
 
 target_include_directories(NotepadNextHexDocumentTests
@@ -417,6 +436,7 @@ add_test(NAME NotepadNextPluginTrustTests COMMAND NotepadNextPluginTrustTests)
 
 qt_add_executable(NotepadNextExternalFileChangeTests
     ExternalFileChangeTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/AtomicFileWriter.cpp
     ${CMAKE_SOURCE_DIR}/src/ScintillaNext.cpp
     ${CMAKE_SOURCE_DIR}/src/Finder.cpp
     ${CMAKE_SOURCE_DIR}/src/ScintillaCommenter.cpp

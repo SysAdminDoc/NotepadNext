@@ -18,6 +18,7 @@
 
 
 #include "MainWindow.h"
+#include "AtomicFileWriter.h"
 #include "BookMarkDecorator.h"
 #include "DefaultDirectoryManager.h"
 #include "DirectoryDropScanner.h"
@@ -1982,13 +1983,29 @@ void MainWindow::exportAsFormat(Converter *converter, const QString &filter)
         return;
     }
 
-    QFile f(fileName);
+    const AtomicFileWriter::Result result = AtomicFileWriter::write(
+        fileName,
+        [converter](QIODevice *device, QString *errorString) {
+            QTextStream stream(device);
+            converter->convert(stream);
+            stream.flush();
+            if (stream.status() == QTextStream::Ok) {
+                return true;
+            }
 
-    f.open(QIODevice::WriteOnly);
+            if (errorString) {
+                *errorString = QStringLiteral("The export stream could not be written completely.");
+            }
+            return false;
+        });
 
-    QTextStream s(&f);
-    converter->convert(s);
-    f.close();
+    if (!result.succeeded()) {
+        const QString detail = result.errorString.isEmpty()
+            ? tr("The destination could not be written.")
+            : result.errorString;
+        qWarning("Export failed for %s: %s", qUtf8Printable(fileName), qUtf8Printable(detail));
+        QMessageBox::critical(this, tr("Export Failed"), tr("Could not export the document:\n%1").arg(detail));
+    }
 }
 
 void MainWindow::copyAsFormat(Converter *converter, const QString &mimeType)
@@ -2719,8 +2736,12 @@ void MainWindow::showSaveErrorMessage(ScintillaNext *editor, QFileDevice::FileEr
         default:                            errorString = tr("Unknown error (%1)").arg(static_cast<int>(error)); break;
     }
 
-    QMessageBox::warning(this, tr("Error Saving File"),
-        tr("An error occurred when saving <b>%1</b><br><br>Error: %2").arg(name, errorString));
+    QString details = tr("An error occurred when saving <b>%1</b><br><br>Error: %2").arg(name, errorString);
+    if (!editor->lastFileError().isEmpty()) {
+        details += tr("<br><br>%1").arg(editor->lastFileError().toHtmlEscaped());
+    }
+
+    QMessageBox::warning(this, tr("Error Saving File"), details);
 }
 
 void MainWindow::showEditorZoomLevelIndicator()

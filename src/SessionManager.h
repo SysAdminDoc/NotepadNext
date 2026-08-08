@@ -61,7 +61,8 @@ private:
     void pruneJournalGenerations(const QString &activeGeneration) const;
     bool isJournalPathSafe(const QDir &generationDirectory, const QString &fileName) const;
 
-    void saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const;
+    bool saveEditorCopy(ScintillaNext *editor, const QString &path) const;
+    bool saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const;
 
     SessionFileType determineType(ScintillaNext *editor) const;
 

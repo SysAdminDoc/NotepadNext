@@ -18,6 +18,7 @@
 
 
 #include "ScintillaNext.h"
+#include "AtomicFileWriter.h"
 #include "Finder.h"
 #include "ScintillaCommenter.h"
 
@@ -29,7 +30,6 @@
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QMouseEvent>
-#include <QSaveFile>
 #include <QSignalBlocker>
 #include <QTextCodec>
 
@@ -137,29 +137,30 @@ static QFileDevice::FileError writeToDisk(const QByteArray &data, const QString 
         return QFileDevice::WriteError;
     }
 
-    QSaveFile file(path);
-    file.setDirectWriteFallback(false);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning("writeToDisk() failed to open file %s: %s", qPrintable(path), qPrintable(file.errorString()));
-        return file.error();
-    }
-
-    // Write BOM
     const QByteArray bomBytes = bomData(bom);
-    if (!bomBytes.isEmpty() && file.write(bomBytes) != bomBytes.size()) {
-        qWarning("writeToDisk() failed writing BOM: %s", qPrintable(file.errorString()));
-        return file.error();
-    }
+    const AtomicFileWriter::Result result = AtomicFileWriter::write(
+        path,
+        [&bomBytes, &encodedData](QIODevice *device, QString *errorString) {
+            if (!bomBytes.isEmpty() && device->write(bomBytes) != bomBytes.size()) {
+                if (errorString) {
+                    *errorString = QStringLiteral("The file BOM could not be written completely.");
+                }
+                return false;
+            }
 
-    // Write actual data
-    if (file.write(encodedData) != encodedData.size()) {
-        qWarning("writeToDisk() failed writing data: %s", qPrintable(file.errorString()));
-        return file.error();
-    }
+            if (device->write(encodedData) != encodedData.size()) {
+                if (errorString) {
+                    *errorString = QStringLiteral("The document contents could not be written completely.");
+                }
+                return false;
+            }
 
-    if (!file.commit()) {
-        qWarning("writeToDisk() failed committing file %s: %s", qPrintable(path), qPrintable(file.errorString()));
-        return file.error();
+            return true;
+        });
+
+    if (!result.succeeded()) {
+        qWarning("writeToDisk() failed for %s: %s", qPrintable(path), qPrintable(result.errorString));
+        return result.error;
     }
 
     return QFileDevice::NoError;
@@ -625,8 +626,13 @@ QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
 
 QFileDevice::FileError ScintillaNext::saveCopyAs(const QString &filePath)
 {
+    lastFileErrorMessage.clear();
     const QByteArray data = QByteArray::fromRawData((char*)characterPointer(), textLength());
-    return writeToDisk(data, filePath, bomType, encodingName);
+    const QFileDevice::FileError error = writeToDisk(data, filePath, bomType, encodingName);
+    if (error != QFileDevice::NoError) {
+        lastFileErrorMessage = tr("Unable to save %1.").arg(filePath);
+    }
+    return error;
 }
 
 bool ScintillaNext::rename(const QString &newFilePath)

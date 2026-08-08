@@ -18,6 +18,7 @@
 
 
 #include "BookMarkDecorator.h"
+#include "AtomicFileWriter.h"
 #include "ScintillaNext.h"
 #include "MainWindow.h"
 #include "SessionManager.h"
@@ -31,7 +32,6 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QSaveFile>
 #include <QStandardPaths>
 #include <QUuid>
 
@@ -126,9 +126,23 @@ QString SessionManager::sessionManifestPath() const
     return sessionDirectory().filePath(SessionJournal::manifestFileName());
 }
 
-void SessionManager::saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const
+bool SessionManager::saveEditorCopy(ScintillaNext *editor, const QString &path) const
 {
-    editor->saveCopyAs(sessionDirectory().filePath(sessionFileName));
+    const QFileDevice::FileError error = editor->saveCopyAs(path);
+    if (error == QFileDevice::NoError) {
+        return true;
+    }
+
+    qWarning("Unable to atomically write session buffer %s (error %d): %s",
+             qUtf8Printable(path),
+             static_cast<int>(error),
+             qUtf8Printable(editor->lastFileError()));
+    return false;
+}
+
+bool SessionManager::saveIntoSessionDirectory(ScintillaNext *editor, const QString &sessionFileName) const
+{
+    return saveEditorCopy(editor, sessionDirectory().filePath(sessionFileName));
 }
 
 SessionManager::SessionFileType SessionManager::determineType(ScintillaNext *editor) const
@@ -223,7 +237,7 @@ bool SessionManager::saveJournal(MainWindow *window)
             details[QStringLiteral("FilePath")] = editor->getFilePath();
 
             const QString sessionFileName = RandomSessionFileName();
-            if (editor->saveCopyAs(generationDirectory.filePath(sessionFileName)) != QFileDevice::NoError) {
+            if (!saveEditorCopy(editor, generationDirectory.filePath(sessionFileName))) {
                 qWarning("Unable to save unsaved editor into the session journal");
                 removeGeneration();
                 return false;
@@ -236,7 +250,7 @@ bool SessionManager::saveJournal(MainWindow *window)
             details[QStringLiteral("Language")] = editor->languageName;
 
             const QString sessionFileName = RandomSessionFileName();
-            if (editor->saveCopyAs(generationDirectory.filePath(sessionFileName)) != QFileDevice::NoError) {
+            if (!saveEditorCopy(editor, generationDirectory.filePath(sessionFileName))) {
                 qWarning("Unable to save temporary editor into the session journal");
                 removeGeneration();
                 return false;
@@ -267,17 +281,10 @@ bool SessionManager::saveJournal(MainWindow *window)
     manifest.currentEditorIndex = currentEditorIndex;
     manifest.openedFiles = openedFiles;
 
-    QSaveFile file(sessionManifestPath());
-    file.setDirectWriteFallback(false);
-    if (!file.open(QIODevice::WriteOnly)) {
-        qWarning("Unable to open session journal manifest: %s", qPrintable(file.errorString()));
-        removeGeneration();
-        return false;
-    }
-
     const QByteArray data = SessionJournal::serialize(manifest);
-    if (file.write(data) != data.size() || !file.commit()) {
-        qWarning("Unable to commit session journal manifest: %s", qPrintable(file.errorString()));
+    const AtomicFileWriter::Result writeResult = AtomicFileWriter::write(sessionManifestPath(), data);
+    if (!writeResult.succeeded()) {
+        qWarning("Unable to commit session journal manifest: %s", qUtf8Printable(writeResult.errorString));
         removeGeneration();
         return false;
     }
@@ -567,13 +574,17 @@ void SessionManager::storeUnsavedFileDetails(ScintillaNext *editor, QSettings &s
 {
     const QString sessionFileName = RandomSessionFileName();
 
+    if (!saveIntoSessionDirectory(editor, sessionFileName)) {
+        qWarning("Unable to store unsaved editor in the legacy session");
+        return;
+    }
+
     settings.setValue("Type", "UnsavedFile");
     settings.setValue("FilePath", editor->getFilePath());
     settings.setValue("SessionFileName", sessionFileName);
 
     storeEditorViewDetails(editor, settings);
 
-    saveIntoSessionDirectory(editor, sessionFileName);
 }
 
 ScintillaNext *SessionManager::loadUnsavedFileDetails(QSettings &settings)
@@ -617,6 +628,11 @@ void SessionManager::storeTempFile(ScintillaNext *editor, QSettings &settings)
 {
     const QString sessionFileName = RandomSessionFileName();
 
+    if (!saveIntoSessionDirectory(editor, sessionFileName)) {
+        qWarning("Unable to store temporary editor in the legacy session");
+        return;
+    }
+
     settings.setValue("Type", "Temp");
     settings.setValue("FileName", editor->getName());
     settings.setValue("SessionFileName", sessionFileName);
@@ -624,7 +640,6 @@ void SessionManager::storeTempFile(ScintillaNext *editor, QSettings &settings)
 
     storeEditorViewDetails(editor, settings);
 
-    saveIntoSessionDirectory(editor, sessionFileName);
 }
 
 ScintillaNext *SessionManager::loadTempFile(QSettings &settings)

@@ -8,6 +8,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Reliability: External file changes now preserve the in-memory document on reload failure, distinguish deleted/restored/conflicted states, and block ordinary saves until the change is resolved explicitly.
 - Reliability: SFTP saves now verify remote size/mtime, upload to a same-directory temporary path, validate the transfer, and atomically replace the destination without silently overwriting concurrent edits.
 - Reliability: Recursive directory drops now avoid symlinks, de-duplicate canonical paths, enforce depth/file/byte/time limits, and provide cancelable background scanning with skipped-item reporting.
+- Reliability: Document, export, and session writes now share checked atomic replacement, preserve previous output on failure, and surface actionable write errors.
 
 ## [v0.15] - 2026-08-03
 

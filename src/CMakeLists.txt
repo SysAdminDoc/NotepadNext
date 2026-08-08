@@ -46,6 +46,7 @@ qt_add_executable(NotepadNext
 	NotepadNextApplication.h
 	NppPluginInterface.h
 	NppPluginManager.h
+	NppPluginTrust.h
 	NppImporter.h
 	PortableMode.h
 	QRegexSearch.h
@@ -124,6 +125,7 @@ qt_add_executable(NotepadNext
 	main.cpp
 	NotepadNextApplication.cpp
 	NppPluginManager.cpp
+	NppPluginTrust.cpp
 	NppImporter.cpp
 	PortableMode.cpp
 	QRegexSearch.cpp

@@ -95,6 +95,8 @@ Binary files opened through **File > Open** are detected before text decoding an
 
 **View > Scripting Console** runs reusable JavaScript against the active document through the pinned QuickJS-NG engine. The console exposes `notepad.text()`, `notepad.setText(value)`, `notepad.selectedText()`, `notepad.replaceSelection(value)`, `notepad.insertText(value)`, `notepad.filePath()`, `notepad.save()`, `notepad.openFile(path)`, and `notepad.log(value)`. `Run Script File...` loads `.js` and `.mjs` files; `print(value)` and `console.log(value)` write to the dock output.
 
+On Windows, Notepad++-compatible DLL plugins are not loaded automatically. Review a discovered plugin under **Plugins > Plugin Trust** and explicitly trust its SHA-256 identity before loading it; the profile plugin directory is disabled until enabled there. Trust is revoked from the same menu and takes effect on the next start. Use `NotepadNext.exe --safe-mode` to disable native plugins for one session.
+
 **View > Snippet Manager** stores reusable templates in the application profile. Use **Edit > Insert Snippet...** for selection-based insertion, or type a snippet trigger in the editor and press Tab. Bodies support `${1:default}` and `${2}` placeholders; Tab and Shift+Tab navigate them, and `${0}` marks the final caret position.
 
 Built-in docks and dialogs expose descriptive screen-reader names and keyboard guidance. The command palette accepts Up/Down navigation, file and workspace lists activate with Enter, and custom dock controls have an explicit Tab order.

@@ -65,6 +65,7 @@ void parseCommandLine(QCommandLineParser &parser, const QStringList &args)
     parser.addOptions({
         {"translation", "Overrides the system default translation.", "translation"},
         {"reset-settings", "Resets all application settings."},
+        {"safe-mode", "Disables native Notepad++ DLL plugins for this session."},
         {"n", "Places the cursor on the line number for the first file specified", "line number"},
         {"workspace", "Opens the specified folder as a workspace", "workspace path"}
     });
@@ -232,7 +233,7 @@ bool NotepadNextApplication::init()
         window->setFolderAsWorkspacePath(dir);
     }
 
-    nppPluginManager = new NppPluginManager(window, editorManager, this);
+    nppPluginManager = new NppPluginManager(window, editorManager, parser.isSet("safe-mode"), this);
     nppPluginManager->load();
 
     window->show();
@@ -532,6 +533,7 @@ QStringList NotepadNextApplication::debugInfo() const
     info.append(QStringLiteral("Arguments: %1").arg(arguments().join(' ')));
     info.append(QStringLiteral("Config File: %1").arg(ApplicationSettings().fileName()));
     info.append(QStringLiteral("Portable Mode: %1").arg(PortableMode::isEnabled() ? QStringLiteral("enabled") : QStringLiteral("disabled")));
+    info.append(QStringLiteral("Safe Mode: %1").arg(parser.isSet("safe-mode") ? QStringLiteral("enabled") : QStringLiteral("disabled")));
     if (PortableMode::isEnabled()) {
         info.append(QStringLiteral("Portable Profile: %1").arg(PortableMode::profileDirectory()));
     }

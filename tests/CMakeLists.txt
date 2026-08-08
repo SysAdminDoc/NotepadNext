@@ -396,3 +396,21 @@ target_link_libraries(NotepadNextSftpClientTests
 )
 
 add_test(NAME NotepadNextSftpClientTests COMMAND NotepadNextSftpClientTests)
+
+qt_add_executable(NotepadNextPluginTrustTests
+    PluginTrustTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/NppPluginTrust.cpp
+)
+
+target_include_directories(NotepadNextPluginTrustTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextPluginTrustTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Test
+)
+
+add_test(NAME NotepadNextPluginTrustTests COMMAND NotepadNextPluginTrustTests)

@@ -13,6 +13,10 @@
 
 #include <QAbstractNativeEventFilter>
 #include <QObject>
+#include <QSettings>
+#include <QVector>
+
+#include "NppPluginTrust.h"
 
 #include <memory>
 #include <vector>
@@ -32,7 +36,10 @@ class NppPluginManager final : public QObject, public QAbstractNativeEventFilter
     Q_OBJECT
 
 public:
-    explicit NppPluginManager(MainWindow *mainWindow, EditorManager *editorManager, QObject *parent = nullptr);
+    explicit NppPluginManager(MainWindow *mainWindow,
+                              EditorManager *editorManager,
+                              bool safeMode = false,
+                              QObject *parent = nullptr);
     ~NppPluginManager() override;
 
     void load();
@@ -46,6 +53,20 @@ private:
     void attachEditor(ScintillaNext *editor);
 
 #ifdef Q_OS_WIN
+    struct BlockedPlugin
+    {
+        NppPluginTrust::Identity identity;
+        QString reason;
+    };
+
+    void refreshTrustMenu();
+    void scanAndLoadPlugins();
+    bool loadPlugin(const NppPluginTrust::Identity &identity, QString *error);
+    void enableUserPlugins();
+    void trustAndLoad(int index);
+    void revokeTrust(const NppPluginTrust::Identity &identity);
+    void revokeAllTrust();
+
     void notifyEditor(ScintillaNext *editor, Scintilla::NotificationData *notification);
     void notifyApplication(unsigned int code);
 #endif
@@ -53,7 +74,14 @@ private:
     MainWindow *mainWindow = nullptr;
     EditorManager *editorManager = nullptr;
     QMenu *pluginMenu = nullptr;
+    QMenu *pluginTrustMenu = nullptr;
+    bool safeMode = false;
+    QSettings pluginSettings;
+    NppPluginTrust::TrustStore trustStore;
     std::vector<std::unique_ptr<LoadedPlugin>> plugins;
+#ifdef Q_OS_WIN
+    QVector<BlockedPlugin> blockedPlugins;
+#endif
     bool initialized = false;
 };
 

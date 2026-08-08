@@ -2,6 +2,10 @@
 
 All notable changes to NotepadNext will be documented in this file.
 
+## [Unreleased]
+
+- Security: Windows Notepad++ DLL plugins now require an explicit, persisted SHA-256 trust decision; profile plugins are opt-in and `--safe-mode` disables native plugins for the session.
+
 ## [v0.15] - 2026-08-03
 
 - Fixed: Session recovery now commits unsaved buffers through an atomic, generation-based journal with a backward-compatible legacy loader.

@@ -17,13 +17,11 @@
 #include <QAction>
 #include <QCoreApplication>
 #include <QDir>
-#include <QDirIterator>
 #include <QFileInfo>
 #include <QHash>
 #include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
-#include <QSet>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QVector>
@@ -88,37 +86,6 @@ HWND nativeHandle(QWidget *widget)
 HWND editorHandle(ScintillaNext *editor)
 {
     return editor ? nativeHandle(editor->viewport()) : nullptr;
-}
-
-QStringList pluginFiles()
-{
-    const QString applicationDirectory = QCoreApplication::applicationDirPath();
-    const QStringList roots = {
-        QDir(applicationDirectory).filePath(QStringLiteral("plugins")),
-        QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)).filePath(QStringLiteral("plugins")),
-    };
-
-    QStringList files;
-    QSet<QString> seen;
-    for (const QString &root : roots) {
-        if (!QDir(root).exists()) {
-            continue;
-        }
-
-        QDirIterator iterator(root, {QStringLiteral("*.dll")}, QDir::Files, QDirIterator::Subdirectories);
-        while (iterator.hasNext()) {
-            const QString file = QFileInfo(iterator.next()).canonicalFilePath();
-            if (!file.isEmpty() && !seen.contains(file)) {
-                seen.insert(file);
-                files.append(file);
-            }
-        }
-    }
-
-    std::sort(files.begin(), files.end(), [](const QString &left, const QString &right) {
-        return left.compare(right, Qt::CaseInsensitive) < 0;
-    });
-    return files;
 }
 
 QKeySequence shortcutFor(const NppPlugin::ShortcutKey *shortcut)
@@ -205,6 +172,7 @@ bool markDirty(ScintillaNext *editor)
 struct NppPluginManager::LoadedPlugin
 {
     QLibrary library;
+    NppPluginTrust::Identity identity;
     QString path;
     QString name;
     NppPlugin::SetInfo setInfo = nullptr;
@@ -222,15 +190,23 @@ struct NppPluginManager::LoadedPlugin
 
 #endif
 
-NppPluginManager::NppPluginManager(MainWindow *mainWindow, EditorManager *editorManager, QObject *parent)
+NppPluginManager::NppPluginManager(MainWindow *mainWindow,
+                                   EditorManager *editorManager,
+                                   bool safeMode,
+                                   QObject *parent)
     : QObject(parent),
       mainWindow(mainWindow),
-      editorManager(editorManager)
+      editorManager(editorManager),
+      safeMode(safeMode),
+      pluginSettings(this),
+      trustStore(&pluginSettings)
 {
 #ifdef Q_OS_WIN
     pluginMenu = mainWindow->menuBar()->addMenu(tr("Plugins"));
     pluginMenu->setObjectName(QStringLiteral("menuPlugins"));
     pluginMenu->setVisible(false);
+    pluginTrustMenu = pluginMenu->addMenu(tr("Plugin Trust"));
+    pluginTrustMenu->setObjectName(QStringLiteral("menuPluginTrust"));
 #endif
 
     if (editorManager) {
@@ -266,80 +242,18 @@ void NppPluginManager::load()
         return;
     }
 
+    if (safeMode) {
+        initialized = true;
+        refreshTrustMenu();
+        qInfo("Notepad++ DLL plugins are disabled by safe mode");
+        return;
+    }
+
     if (QCoreApplication::instance()) {
         QCoreApplication::instance()->installNativeEventFilter(this);
     }
 
-    for (const QString &path : pluginFiles()) {
-        auto plugin = std::make_unique<LoadedPlugin>();
-        plugin->path = path;
-        plugin->library.setFileName(path);
-        plugin->library.setLoadHints(QLibrary::PreventUnloadHint);
-        if (!plugin->library.load()) {
-            qWarning("Notepad++ plugin load failed for %s: %s", qUtf8Printable(path), qUtf8Printable(plugin->library.errorString()));
-            continue;
-        }
-
-        plugin->setInfo = resolve<NppPlugin::SetInfo>(plugin->library, "setInfo");
-        if (!plugin->setInfo) {
-            qWarning("Notepad++ plugin %s has no setInfo export", qUtf8Printable(path));
-            continue;
-        }
-
-        const NppPlugin::IsUnicode isUnicode = resolve<NppPlugin::IsUnicode>(plugin->library, "isUnicode");
-        if (isUnicode && !isUnicode()) {
-            qWarning("Skipping ANSI-only Notepad++ plugin %s", qUtf8Printable(path));
-            continue;
-        }
-
-        plugin->getFuncsArray = resolve<NppPlugin::GetFuncsArray>(plugin->library, "getFuncsArray");
-        plugin->beNotified = resolve<NppPlugin::BeNotified>(plugin->library, "beNotified");
-        plugin->messageProc = resolve<NppPlugin::MessageProc>(plugin->library, "messageProc");
-
-        const NppPlugin::GetName getName = resolve<NppPlugin::GetName>(plugin->library, "getName");
-        if (getName) {
-            if (const wchar_t *name = getName()) {
-                plugin->name = QString::fromWCharArray(name);
-            }
-        }
-        if (plugin->name.isEmpty()) {
-            plugin->name = QFileInfo(path).completeBaseName();
-        }
-
-        plugin->setInfo({
-            nativeHandle(mainWindow),
-            editorHandle(mainWindow->editors().value(0)),
-            editorHandle(mainWindow->editors().value(1)),
-        });
-
-        if (plugin->getFuncsArray && pluginMenu) {
-            int functionCount = 0;
-            NppPlugin::FuncItem *functions = plugin->getFuncsArray(&functionCount);
-            if (functions && functionCount > 0 && functionCount <= 1024) {
-                for (int index = 0; index < functionCount; ++index) {
-                    NppPlugin::FuncItem &function = functions[index];
-                    if (!function.function) {
-                        pluginMenu->addSeparator();
-                        continue;
-                    }
-
-                    auto *action = new QAction(QString::fromWCharArray(function.itemName), pluginMenu);
-                    action->setObjectName(QStringLiteral("plugin_%1_%2").arg(plugin->name).arg(function.commandId));
-                    action->setCheckable(function.initialChecked);
-                    action->setShortcut(shortcutFor(function.shortcut));
-                    const NppPlugin::Func callback = function.function;
-                    connect(action, &QAction::triggered, this, [callback]() {
-                        callback();
-                    });
-                    pluginMenu->addAction(action);
-                    plugin->actions.insert(function.commandId, action);
-                }
-            }
-        }
-
-        qInfo("Loaded Notepad++ plugin %s from %s", qUtf8Printable(plugin->name), qUtf8Printable(path));
-        plugins.push_back(std::move(plugin));
-    }
+    scanAndLoadPlugins();
 
     for (ScintillaNext *editor : mainWindow->editors()) {
         attachEditor(editor);
@@ -360,6 +274,260 @@ void NppPluginManager::load()
     qInfo("Notepad++ DLL plugins are only supported on Windows builds");
 #endif
 }
+
+#ifdef Q_OS_WIN
+void NppPluginManager::scanAndLoadPlugins()
+{
+    blockedPlugins.clear();
+
+    const QString applicationRoot = QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("plugins"));
+    const QString userRoot = QDir(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation))
+                                 .filePath(QStringLiteral("plugins"));
+    const bool userPluginsEnabled = trustStore.userPluginsEnabled();
+
+    for (const NppPluginTrust::Candidate &candidate : NppPluginTrust::discover(applicationRoot, userRoot)) {
+        NppPluginTrust::Identity identity;
+        QString error;
+        if (!NppPluginTrust::identify(candidate, &identity, &error)) {
+            qWarning("Unable to identify Notepad++ plugin %s: %s",
+                     qUtf8Printable(candidate.canonicalPath),
+                     qUtf8Printable(error));
+            continue;
+        }
+
+        const bool alreadyLoaded = std::any_of(plugins.cbegin(), plugins.cend(), [&identity](const auto &plugin) {
+            return plugin->identity.canonicalPath.compare(identity.canonicalPath, Qt::CaseInsensitive) == 0
+                && plugin->identity.sha256 == identity.sha256;
+        });
+        if (alreadyLoaded) {
+            continue;
+        }
+
+        if (candidate.location == NppPluginTrust::Location::User && !userPluginsEnabled) {
+            blockedPlugins.append({identity, tr("The profile plugin directory is disabled by default.")});
+            continue;
+        }
+
+        if (!trustStore.isTrusted(identity)) {
+            blockedPlugins.append({identity, tr("This plugin has not been explicitly trusted.")});
+            continue;
+        }
+
+        if (QString loadError; !loadPlugin(identity, &loadError)) {
+            blockedPlugins.append({identity, tr("The trusted plugin could not be loaded: %1").arg(loadError)});
+        }
+    }
+
+    refreshTrustMenu();
+}
+
+bool NppPluginManager::loadPlugin(const NppPluginTrust::Identity &identity, QString *error)
+{
+    const auto fail = [error](const QString &message) {
+        if (error) {
+            *error = message;
+        }
+        return false;
+    };
+
+    auto plugin = std::make_unique<LoadedPlugin>();
+    plugin->identity = identity;
+    plugin->path = identity.canonicalPath;
+    plugin->library.setFileName(identity.canonicalPath);
+    if (!plugin->library.load()) {
+        const QString message = plugin->library.errorString();
+        qWarning("Notepad++ plugin load failed for %s: %s",
+                 qUtf8Printable(identity.canonicalPath),
+                 qUtf8Printable(message));
+        return fail(message);
+    }
+
+    plugin->setInfo = resolve<NppPlugin::SetInfo>(plugin->library, "setInfo");
+    if (!plugin->setInfo) {
+        const QString message = QStringLiteral("The plugin has no setInfo export.");
+        plugin->library.unload();
+        qWarning("Notepad++ plugin %s was rejected: %s",
+                 qUtf8Printable(identity.canonicalPath),
+                 qUtf8Printable(message));
+        return fail(message);
+    }
+
+    const NppPlugin::IsUnicode isUnicode = resolve<NppPlugin::IsUnicode>(plugin->library, "isUnicode");
+    if (isUnicode && !isUnicode()) {
+        const QString message = QStringLiteral("ANSI-only plugins are not supported.");
+        plugin->library.unload();
+        qWarning("Notepad++ plugin %s was rejected: %s",
+                 qUtf8Printable(identity.canonicalPath),
+                 qUtf8Printable(message));
+        return fail(message);
+    }
+
+    plugin->getFuncsArray = resolve<NppPlugin::GetFuncsArray>(plugin->library, "getFuncsArray");
+    plugin->beNotified = resolve<NppPlugin::BeNotified>(plugin->library, "beNotified");
+    plugin->messageProc = resolve<NppPlugin::MessageProc>(plugin->library, "messageProc");
+
+    const NppPlugin::GetName getName = resolve<NppPlugin::GetName>(plugin->library, "getName");
+    if (getName) {
+        if (const wchar_t *name = getName()) {
+            plugin->name = QString::fromWCharArray(name);
+        }
+    }
+    if (plugin->name.isEmpty()) {
+        plugin->name = identity.pluginId;
+    }
+
+    plugin->setInfo({
+        nativeHandle(mainWindow),
+        editorHandle(mainWindow->editors().value(0)),
+        editorHandle(mainWindow->editors().value(1)),
+    });
+
+    if (plugin->getFuncsArray && pluginMenu) {
+        int functionCount = 0;
+        NppPlugin::FuncItem *functions = plugin->getFuncsArray(&functionCount);
+        if (functions && functionCount > 0 && functionCount <= 1024) {
+            for (int index = 0; index < functionCount; ++index) {
+                NppPlugin::FuncItem &function = functions[index];
+                if (!function.function) {
+                    pluginMenu->addSeparator();
+                    continue;
+                }
+
+                auto *action = new QAction(QString::fromWCharArray(function.itemName), pluginMenu);
+                action->setObjectName(QStringLiteral("plugin_%1_%2").arg(plugin->name).arg(function.commandId));
+                action->setCheckable(function.initialChecked);
+                action->setShortcut(shortcutFor(function.shortcut));
+                const NppPlugin::Func callback = function.function;
+                connect(action, &QAction::triggered, this, [callback]() {
+                    callback();
+                });
+                pluginMenu->addAction(action);
+                plugin->actions.insert(function.commandId, action);
+            }
+        }
+    }
+
+    qInfo("Loaded trusted Notepad++ plugin %s from %s",
+          qUtf8Printable(plugin->name),
+          qUtf8Printable(identity.canonicalPath));
+    plugins.push_back(std::move(plugin));
+
+    if (initialized) {
+        notifyApplication(NppnReady);
+        for (ScintillaNext *editor : mainWindow->editors()) {
+            if (editor && editor->isFile()) {
+                notifyApplication(NppnFileOpened);
+            }
+        }
+    }
+
+    if (error) {
+        error->clear();
+    }
+    return true;
+}
+
+void NppPluginManager::refreshTrustMenu()
+{
+    if (!pluginMenu || !pluginTrustMenu) {
+        return;
+    }
+
+    pluginTrustMenu->clear();
+    if (safeMode) {
+        QAction *action = pluginTrustMenu->addAction(tr("Native plugins are disabled by --safe-mode."));
+        action->setEnabled(false);
+    }
+    else {
+        if (!trustStore.userPluginsEnabled()) {
+            QAction *action = pluginTrustMenu->addAction(tr("Enable profile plugin directory"));
+            connect(action, &QAction::triggered, this, &NppPluginManager::enableUserPlugins);
+        }
+
+        bool hasBlockedAction = false;
+        for (int index = 0; index < blockedPlugins.size(); ++index) {
+            const BlockedPlugin &blocked = blockedPlugins.at(index);
+            if (blocked.identity.sha256.isEmpty()
+                || (blocked.identity.location == NppPluginTrust::Location::User && !trustStore.userPluginsEnabled())) {
+                continue;
+            }
+
+            QAction *action = pluginTrustMenu->addAction(tr("Trust and load %1").arg(blocked.identity.pluginId));
+            action->setStatusTip(tr("SHA-256 %1 — %2")
+                                      .arg(QString::fromLatin1(blocked.identity.sha256.toHex()), blocked.reason));
+            connect(action, &QAction::triggered, this, [this, index]() {
+                trustAndLoad(index);
+            });
+            hasBlockedAction = true;
+        }
+        if (!hasBlockedAction) {
+            QAction *action = pluginTrustMenu->addAction(tr("No untrusted plugins are waiting for review."));
+            action->setEnabled(false);
+        }
+
+        const QVector<NppPluginTrust::Identity> trusted = trustStore.entries();
+        if (!trusted.isEmpty()) {
+            pluginTrustMenu->addSeparator();
+            for (const NppPluginTrust::Identity &identity : trusted) {
+                QAction *action = pluginTrustMenu->addAction(tr("Revoke trust for %1").arg(identity.pluginId));
+                action->setStatusTip(tr("Takes effect the next time Notepad Next starts."));
+                connect(action, &QAction::triggered, this, [this, identity]() {
+                    revokeTrust(identity);
+                });
+            }
+            QAction *revokeAll = pluginTrustMenu->addAction(tr("Revoke all plugin trust"));
+            connect(revokeAll, &QAction::triggered, this, &NppPluginManager::revokeAllTrust);
+        }
+    }
+
+    pluginMenu->setVisible(safeMode || !plugins.empty() || !blockedPlugins.isEmpty() || !trustStore.entries().isEmpty());
+}
+
+void NppPluginManager::enableUserPlugins()
+{
+    trustStore.setUserPluginsEnabled(true);
+    qInfo("Enabled the profile Notepad++ plugin directory");
+    scanAndLoadPlugins();
+}
+
+void NppPluginManager::trustAndLoad(int index)
+{
+    if (safeMode || index < 0 || index >= blockedPlugins.size()) {
+        return;
+    }
+
+    const BlockedPlugin blocked = blockedPlugins.at(index);
+    if (blocked.identity.location == NppPluginTrust::Location::User && !trustStore.userPluginsEnabled()) {
+        return;
+    }
+
+    trustStore.trust(blocked.identity);
+    QString error;
+    if (loadPlugin(blocked.identity, &error)) {
+        blockedPlugins.removeAt(index);
+        refreshTrustMenu();
+        return;
+    }
+
+    trustStore.revoke(blocked.identity);
+    blockedPlugins[index].reason = tr("The explicit trust attempt failed: %1").arg(error);
+    refreshTrustMenu();
+}
+
+void NppPluginManager::revokeTrust(const NppPluginTrust::Identity &identity)
+{
+    trustStore.revoke(identity);
+    qInfo("Revoked trust for Notepad++ plugin %s", qUtf8Printable(identity.pluginId));
+    refreshTrustMenu();
+}
+
+void NppPluginManager::revokeAllTrust()
+{
+    trustStore.revokeAll();
+    qInfo("Revoked trust for all Notepad++ plugins");
+    refreshTrustMenu();
+}
+#endif
 
 int NppPluginManager::loadedPluginCount() const
 {

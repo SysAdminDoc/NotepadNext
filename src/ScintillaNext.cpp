@@ -27,10 +27,13 @@
 
 #include <QDir>
 #include <QApplication>
+#include <QCryptographicHash>
 #include <QMouseEvent>
 #include <QSaveFile>
+#include <QSignalBlocker>
 #include <QTextCodec>
 
+#include <limits>
 #include <memory>
 
 const int CHUNK_SIZE = 1024 * 1024 * 4; // Not sure what is best
@@ -406,7 +409,8 @@ bool ScintillaNext::canSaveToDisk() const
     // - It is marked as a temporary since as soon as it gets saved it is no longer a temporary buffer
     // - A modified file
     // - A missing file since as soon as it is saved it is no longer missing.
-    return temporary ||
+    return externalChangePending ||
+           temporary ||
            (bufferType == ScintillaNext::New && modify()) ||
            (bufferType == ScintillaNext::File && modify()) ||
             (bufferType == ScintillaNext::FileMissing);
@@ -474,11 +478,23 @@ void ScintillaNext::close()
     deleteLater();
 }
 
-QFileDevice::FileError ScintillaNext::save()
+QFileDevice::FileError ScintillaNext::save(bool allowExternalChange)
 {
     qInfo(Q_FUNC_INFO);
 
     Q_ASSERT(isFile());
+
+    lastSaveConflict = false;
+    lastFileErrorMessage.clear();
+
+    if (!allowExternalChange && bufferType == BufferType::File
+        && (externalChangePending || !diskMatchesSnapshot(true))) {
+        externalChangePending = true;
+        lastSaveConflict = true;
+        lastFileErrorMessage = tr("The file changed outside Notepad Next. Reload it, save a copy, or explicitly overwrite the external change.");
+        qWarning("Refusing to overwrite an externally changed file: %s", qUtf8Printable(fileInfo.filePath()));
+        return QFileDevice::ResourceError;
+    }
 
     emit aboutToSave();
 
@@ -487,7 +503,8 @@ QFileDevice::FileError ScintillaNext::save()
     QFileDevice::FileError writeSuccessful = writeToDisk(data, path, bomType, encodingName);
 
     if (writeSuccessful == QFileDevice::NoError) {
-        updateTimestamp();
+        updateDiskSnapshot();
+        externalChangePending = false;
         setSavePoint();
 
         // If this was a temporary file, make sure it is not any more
@@ -496,42 +513,48 @@ QFileDevice::FileError ScintillaNext::save()
         emit saved();
     }
 
+    if (writeSuccessful != QFileDevice::NoError) {
+        lastFileErrorMessage = tr("Unable to save %1.").arg(path);
+    }
+
     return writeSuccessful;
 }
 
-void ScintillaNext::reload()
+bool ScintillaNext::reload(QString *error)
 {
     Q_ASSERT(isFile());
 
+    const auto fail = [error](const QString &message) {
+        if (error) {
+            *error = message;
+        }
+        return false;
+    };
+
+    if (error) {
+        error->clear();
+    }
+
     // Ensure the file still exists.
-    if (!QFile::exists(fileInfo.canonicalFilePath())) {
-        return;
+    const QString path = fileInfo.filePath();
+    if (!QFileInfo::exists(path)) {
+        return fail(tr("The file no longer exists on disk."));
     }
 
     const int line = firstVisibleLine();
     const int caret = selectionNCaret(mainSelection());
     const int anchor = selectionNAnchor(mainSelection());
 
-    // Remove all the text
-    {
-        const QSignalBlocker blocker(this);
-        setUndoCollection(false);
-        emptyUndoBuffer();
-        setText("");
-        setUndoCollection(true);
-    }
-
-    // NOTE: if the read fails then the buffer will be completely empty...which probably
-    // isn't a good thing, but this should be a rare occurrence.
-    QFile f(fileInfo.canonicalFilePath());
-    bool readSuccessful = readFromDisk(f);
+    QFile f(path);
+    const bool readSuccessful = readFromDisk(f, error);
 
     if (!readSuccessful) {
-        return;
+        return false;
     }
 
-    updateTimestamp();
+    updateDiskSnapshot();
     setSavePoint();
+    externalChangePending = false;
 
     // If this was a temporary file, make sure it is not any more
     if (isTemporary())
@@ -541,21 +564,38 @@ void ScintillaNext::reload()
     setSelection(caret, anchor);
 
     emit reloaded();
+    return true;
 }
 
 void ScintillaNext::omitModifications()
 {
-    // If file modifications will be omitted just update file timestamp
-    // so pop-up will be displayed only once per file modifications.
-    updateTimestamp();
+    // Keep the in-memory buffer, acknowledge the observed disk version, and
+    // require an explicit overwrite or Save As before replacing it.
+    if (bufferType == BufferType::File) {
+        updateDiskSnapshot();
+        externalChangePending = true;
+    }
     setTemporary(true);
-
-    return;
 }
 
 QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
 {
-    bool isRenamed = bufferType == ScintillaNext::New || fileInfo.canonicalFilePath() != newFilePath;
+    lastSaveConflict = false;
+    lastFileErrorMessage.clear();
+
+    const QString currentPath = isFile() ? QFileInfo(fileInfo.filePath()).absoluteFilePath() : QString();
+    const QString targetPath = QFileInfo(newFilePath).absoluteFilePath();
+    const bool samePath = !currentPath.isEmpty()
+        && currentPath.compare(targetPath, Qt::CaseInsensitive) == 0;
+    if (samePath && bufferType == BufferType::File
+        && (externalChangePending || !diskMatchesSnapshot(true))) {
+        externalChangePending = true;
+        lastSaveConflict = true;
+        lastFileErrorMessage = tr("The file changed outside Notepad Next. Choose a different path or explicitly overwrite the external change.");
+        return QFileDevice::ResourceError;
+    }
+
+    const bool isRenamed = bufferType == ScintillaNext::New || !samePath;
 
     emit aboutToSave();
 
@@ -565,6 +605,7 @@ QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
     if (saveSuccessful == QFileDevice::NoError) {
         setFileInfo(newFilePath);
         setSavePoint();
+        externalChangePending = false;
 
         // If this was a temporary file, make sure it is not any more
         setTemporary(false);
@@ -574,6 +615,9 @@ QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
         if (isRenamed) {
             emit renamed();
         }
+    }
+    else {
+        lastFileErrorMessage = tr("Unable to save %1.").arg(newFilePath);
     }
 
     return saveSuccessful;
@@ -587,6 +631,17 @@ QFileDevice::FileError ScintillaNext::saveCopyAs(const QString &filePath)
 
 bool ScintillaNext::rename(const QString &newFilePath)
 {
+    lastSaveConflict = false;
+    lastFileErrorMessage.clear();
+
+    if (bufferType == BufferType::File
+        && (externalChangePending || !diskMatchesSnapshot(true))) {
+        externalChangePending = true;
+        lastSaveConflict = true;
+        lastFileErrorMessage = tr("The file changed outside Notepad Next. Reload it or save the buffer to a different path before renaming.");
+        return false;
+    }
+
     emit aboutToSave();
 
     // Write out the buffer to the new path
@@ -598,6 +653,7 @@ bool ScintillaNext::rename(const QString &newFilePath)
         // Everything worked fine, so update the buffer's info
         setFileInfo(newFilePath);
         setSavePoint();
+        externalChangePending = false;
 
         // If this was a temporary file, make sure it is not any more
         setTemporary(false);
@@ -609,6 +665,7 @@ bool ScintillaNext::rename(const QString &newFilePath)
         return true;
     }
 
+    lastFileErrorMessage = tr("Unable to rename the file to %1.").arg(newFilePath);
     return false;
 }
 
@@ -629,9 +686,13 @@ ScintillaNext::FileStateChange ScintillaNext::checkFileForStateChange()
             return FileStateChange::Deleted;
         }
 
-        // See if the timestamp changed
-        if (modifiedTime != fileTimestamp()) {
-            return FileStateChange::Modified;
+        if (externalChangePending) {
+            return FileStateChange::Conflict;
+        }
+
+        // See if the timestamp or size changed
+        if (modifiedTime != fileTimestamp() || fileSize != fileInfo.size()) {
+            return modify() ? FileStateChange::Conflict : FileStateChange::Modified;
         }
         else {
             return FileStateChange::NoChange;
@@ -643,8 +704,9 @@ ScintillaNext::FileStateChange ScintillaNext::checkFileForStateChange()
 
         if (fileInfo.exists()) {
             bufferType = BufferType::File;
+            externalChangePending = true;
 
-            return FileStateChange::Restored;
+            return modify() ? FileStateChange::Conflict : FileStateChange::Restored;
         }
         else {
             return FileStateChange::NoChange;
@@ -745,113 +807,166 @@ void ScintillaNext::dropEvent(QDropEvent *event)
     ScintillaEdit::dropEvent(event);
 }
 
-bool ScintillaNext::readFromDisk(QFile &file)
+bool ScintillaNext::readFromDisk(QFile &file, QString *error)
 {
-    if (!file.exists()) {
-        qWarning("Cannot read \"%s\": doesn't exist", qUtf8Printable(file.fileName()));
+    const auto fail = [error](const QString &message) {
+        if (error) {
+            *error = message;
+        }
         return false;
+    };
+
+    if (error) {
+        error->clear();
+    }
+
+    if (!file.exists()) {
+        const QString message = tr("The file does not exist.");
+        qWarning("Cannot read \"%s\": doesn't exist", qUtf8Printable(file.fileName()));
+        return fail(message);
     }
 
     if (!file.open(QIODevice::ReadOnly)) {
+        const QString message = tr("Unable to open the file: %1").arg(file.errorString());
         qWarning("QFile::open() failed when opening \"%s\" - error code %d: %s", qUtf8Printable(file.fileName()), file.error(), qUtf8Printable(file.errorString()));
-        return false;
+        return fail(message);
     }
 
-    // TODO: figure out what to do if "size" is too big
-    allocate(file.size());
-
-    // Turn off undo collection and block signals during loading
-    setUndoCollection(false);
-    blockSignals(true);
-    // TODO disable notifications
-    // modEventMask(SC_MOD_NONE)?
-
-    QByteArray chunk = file.read(CHUNK_SIZE);
-    if (file.error() != QFileDevice::NoError) {
-        qWarning("Something bad happened when reading disk %d %s", file.error(), qUtf8Printable(file.errorString()));
+    const qint64 sourceSize = file.size();
+    if (sourceSize > std::numeric_limits<int>::max()) {
+        const QString message = tr("The file is too large to load into the editor.");
         file.close();
-        return false;
+        return fail(message);
     }
 
-    bomType = detectBom(chunk);
-    if (bomType != BomType::None) {
+    QByteArray encodedData;
+    if (sourceSize > 0) {
+        encodedData.reserve(static_cast<int>(sourceSize));
+    }
+
+    while (!file.atEnd()) {
+        const QByteArray chunk = file.read(CHUNK_SIZE);
+        if (chunk.isEmpty()) {
+            if (file.error() != QFileDevice::NoError) {
+                const QString message = tr("Unable to read the file: %1").arg(file.errorString());
+                qWarning("Something bad happened when reading disk %d %s", file.error(), qUtf8Printable(file.errorString()));
+                file.close();
+                return fail(message);
+            }
+            break;
+        }
+        encodedData.append(chunk);
+    }
+
+    if (file.error() != QFileDevice::NoError) {
+        const QString message = tr("Unable to read the file: %1").arg(file.errorString());
+        file.close();
+        return fail(message);
+    }
+
+    const QFileInfo sourceInfo(file);
+    const bool writable = sourceInfo.isWritable();
+    file.close();
+
+    const BomType loadedBom = detectBom(encodedData);
+    if (loadedBom != BomType::None) {
         qDebug("BOM found");
     }
 
+    QByteArray loadedEncoding;
     QTextCodec *codec = nullptr;
-    if (bomType == BomType::Utf8) {
+    if (loadedBom == BomType::Utf8) {
         codec = QTextCodec::codecForName("UTF-8");
     }
-    else if (bomType == BomType::Utf16LE) {
+    else if (loadedBom == BomType::Utf16LE) {
         codec = QTextCodec::codecForName("UTF-16LE");
     }
-    else if (bomType == BomType::Utf16BE) {
+    else if (loadedBom == BomType::Utf16BE) {
         codec = QTextCodec::codecForName("UTF-16BE");
     }
-    else if (bomType == BomType::Utf32LE) {
+    else if (loadedBom == BomType::Utf32LE) {
         codec = QTextCodec::codecForName("UTF-32LE");
     }
-    else if (bomType == BomType::Utf32BE) {
+    else if (loadedBom == BomType::Utf32BE) {
         codec = QTextCodec::codecForName("UTF-32BE");
     }
     else {
-        encodingName = sniffEncoding(chunk);
-        codec = QTextCodec::codecForName(encodingName);
+        loadedEncoding = sniffEncoding(encodedData.left(CHUNK_SIZE));
+        codec = QTextCodec::codecForName(loadedEncoding);
     }
 
+    BomType effectiveBom = loadedBom;
     if (codec == nullptr) {
         qWarning("Unable to select a codec; falling back to UTF-8");
-        bomType = BomType::None;
-        encodingName = QByteArrayLiteral("UTF-8");
-        codec = QTextCodec::codecForName(encodingName);
+        effectiveBom = BomType::None;
+        loadedEncoding = QByteArrayLiteral("UTF-8");
+        codec = QTextCodec::codecForName(loadedEncoding);
     }
-    else {
-        encodingName = codec->name();
+    else if (loadedEncoding.isEmpty()) {
+        loadedEncoding = codec->name();
+    }
+
+    if (!codec) {
+        const QString message = tr("Unable to select a text codec for the file.");
+        return fail(message);
     }
 
     const std::unique_ptr<QTextDecoder> decoder(codec->makeDecoder(QTextCodec::ConversionFlags{}));
-    const auto appendDecoded = [this, &decoder](const QByteArray &encodedData) {
-        const QString unicodeData = decoder->toUnicode(encodedData);
-        const QByteArray utf8Data = unicodeData.toUtf8();
-        appendText(static_cast<int>(utf8Data.size()), utf8Data.constData());
-    };
-
-    const int bytesToSkip = bomLength(bomType);
-    if (bytesToSkip > 0) {
-        chunk.remove(0, bytesToSkip);
-    }
-    appendDecoded(chunk);
-
-    while (!file.atEnd() && status() == SC_STATUS_OK) {
-        chunk = file.read(CHUNK_SIZE);
-        if (chunk.isEmpty() && file.error() != QFileDevice::NoError) {
-            qWarning("Something bad happened when reading disk %d %s", file.error(), qUtf8Printable(file.errorString()));
-            file.close();
-            return false;
-        }
-
-        appendDecoded(chunk);
+    QByteArray decodedData;
+    const int bytesToSkip = bomLength(effectiveBom);
+    for (int offset = qMin(bytesToSkip, encodedData.size()); offset < encodedData.size();) {
+        const int chunkLength = qMin(CHUNK_SIZE, encodedData.size() - offset);
+        const QByteArray chunk = encodedData.mid(offset, chunkLength);
+        decodedData.append(decoder->toUnicode(chunk).toUtf8());
+        offset += chunkLength;
     }
 
     if (decoder->hasFailure()) {
-        qWarning("The %s decoder reported invalid input", encodingName.constData());
+        qWarning("The %s decoder reported invalid input", loadedEncoding.constData());
     }
 
-    file.close();
+    const QByteArray previousData = getText(textLength());
+    const BomType previousBom = bomType;
+    const QByteArray previousEncoding = encodingName;
+    const bool previousReadOnly = readOnly();
 
-    // Restore it back
-    this->blockSignals(false);
-    setUndoCollection(true);
-    // modEventMask(SC_MODEVENTMASKALL)?
+    allocate(decodedData.size());
+    bool applied = true;
+    {
+        const QSignalBlocker blocker(this);
+        setUndoCollection(false);
+        emptyUndoBuffer();
+        setText("");
+        if (!decodedData.isEmpty()) {
+            appendText(static_cast<int>(decodedData.size()), decodedData.constData());
+        }
+        setUndoCollection(true);
+        applied = status() == SC_STATUS_OK;
+    }
 
-    if (status() != SC_STATUS_OK) {
+    if (!applied) {
         qWarning("something bad happened in document->add_data() %ld", status());
-        return false;
+        allocate(previousData.size());
+        const QSignalBlocker blocker(this);
+        setUndoCollection(false);
+        emptyUndoBuffer();
+        setText("");
+        if (!previousData.isEmpty()) {
+            appendText(static_cast<int>(previousData.size()), previousData.constData());
+        }
+        setUndoCollection(true);
+        bomType = previousBom;
+        encodingName = previousEncoding;
+        setReadOnly(previousReadOnly);
+        return fail(tr("The editor could not apply the loaded document."));
     }
 
-    if (!QFileInfo(file).isWritable()) {
+    bomType = effectiveBom;
+    encodingName = loadedEncoding;
+    diskFingerprint = QCryptographicHash::hash(encodedData, QCryptographicHash::Sha256);
+    setReadOnly(!writable);
+    if (!writable) {
         qInfo("Setting file as read-only");
-        setReadOnly(true);
     }
 
     return true;
@@ -869,6 +984,61 @@ QDateTime ScintillaNext::fileTimestamp()
 void ScintillaNext::updateTimestamp()
 {
     modifiedTime = fileTimestamp();
+    fileSize = fileInfo.size();
+}
+
+QByteArray ScintillaNext::fingerprintForFile(const QString &filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return {};
+    }
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file)) {
+        return {};
+    }
+    return hash.result();
+}
+
+void ScintillaNext::updateDiskSnapshot()
+{
+    if (!isFile()) {
+        return;
+    }
+
+    fileInfo.refresh();
+    if (!fileInfo.exists()) {
+        modifiedTime = {};
+        fileSize = -1;
+        diskFingerprint.clear();
+        return;
+    }
+
+    modifiedTime = fileInfo.lastModified();
+    fileSize = fileInfo.size();
+    diskFingerprint = fingerprintForFile(fileInfo.filePath());
+}
+
+bool ScintillaNext::diskMatchesSnapshot(bool verifyContent) const
+{
+    if (bufferType != BufferType::File) {
+        return bufferType == BufferType::FileMissing && !QFileInfo::exists(fileInfo.filePath());
+    }
+
+    QFileInfo current(fileInfo.filePath());
+    current.refresh();
+    if (!current.exists()
+        || current.lastModified() != modifiedTime
+        || current.size() != fileSize) {
+        return false;
+    }
+
+    if (verifyContent && !diskFingerprint.isEmpty()) {
+        return fingerprintForFile(current.filePath()) == diskFingerprint;
+    }
+
+    return true;
 }
 
 void ScintillaNext::setFileInfo(const QString &filePath)
@@ -881,7 +1051,9 @@ void ScintillaNext::setFileInfo(const QString &filePath)
     name = fileInfo.fileName();
     bufferType = ScintillaNext::File;
 
-    updateTimestamp();
+    externalChangePending = false;
+    lastSaveConflict = false;
+    updateDiskSnapshot();
 }
 
 void ScintillaNext::detachFileInfo(const QString &newName)
@@ -889,6 +1061,11 @@ void ScintillaNext::detachFileInfo(const QString &newName)
     setName(newName);
 
     bufferType = ScintillaNext::New;
+    modifiedTime = {};
+    fileSize = -1;
+    diskFingerprint.clear();
+    externalChangePending = false;
+    lastSaveConflict = false;
 }
 
 void ScintillaNext::setTemporary(bool temp)

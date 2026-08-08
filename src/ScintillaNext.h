@@ -98,6 +98,7 @@ public:
     enum FileStateChange {
         NoChange,
         Modified,
+        Conflict,
         Deleted,
         Restored,
     };
@@ -132,14 +133,18 @@ public:
 
 public slots:
     void close();
-    QFileDevice::FileError save();
-    void reload();
+    QFileDevice::FileError save(bool allowExternalChange = false);
+    bool reload(QString *error = nullptr);
     void omitModifications();
     QFileDevice::FileError saveAs(const QString &newFilePath);
     QFileDevice::FileError saveCopyAs(const QString &filePath);
     bool rename(const QString &newFilePath);
     ScintillaNext::FileStateChange checkFileForStateChange();
     bool moveToTrash();
+
+    bool hasExternalChangePending() const { return externalChangePending; }
+    bool lastSaveWasConflict() const { return lastSaveConflict; }
+    QString lastFileError() const { return lastFileErrorMessage; }
 
     void toggleCommentSelection();
     void commentLineSelection();
@@ -179,9 +184,18 @@ private:
     bool altClickDragging = false;
     QPoint altClickStart;
 
-    bool readFromDisk(QFile &file);
+    bool readFromDisk(QFile &file, QString *error = nullptr);
     QDateTime fileTimestamp();
     void updateTimestamp();
+    void updateDiskSnapshot();
+    bool diskMatchesSnapshot(bool verifyContent) const;
+    static QByteArray fingerprintForFile(const QString &filePath);
+
+    qint64 fileSize = -1;
+    QByteArray diskFingerprint;
+    bool externalChangePending = false;
+    bool lastSaveConflict = false;
+    QString lastFileErrorMessage;
 
 };
 

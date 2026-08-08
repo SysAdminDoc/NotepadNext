@@ -414,3 +414,35 @@ target_link_libraries(NotepadNextPluginTrustTests
 )
 
 add_test(NAME NotepadNextPluginTrustTests COMMAND NotepadNextPluginTrustTests)
+
+qt_add_executable(NotepadNextExternalFileChangeTests
+    ExternalFileChangeTests.cpp
+    ${CMAKE_SOURCE_DIR}/src/ScintillaNext.cpp
+    ${CMAKE_SOURCE_DIR}/src/Finder.cpp
+    ${CMAKE_SOURCE_DIR}/src/ScintillaCommenter.cpp
+    ${CMAKE_SOURCE_DIR}/src/SelectionTracker.cpp
+    ${CMAKE_SOURCE_DIR}/src/UndoAction.cpp
+    ${CMAKE_SOURCE_DIR}/src/RangeAllocator.cpp
+    ${CMAKE_SOURCE_DIR}/src/QRegexSearch.cpp
+)
+
+target_include_directories(NotepadNextExternalFileChangeTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+target_link_libraries(NotepadNextExternalFileChangeTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Core5Compat
+        Qt6::Test
+        scintilla
+        uchardet
+)
+
+add_test(NAME NotepadNextExternalFileChangeTests COMMAND NotepadNextExternalFileChangeTests)
+set_tests_properties(NotepadNextExternalFileChangeTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)

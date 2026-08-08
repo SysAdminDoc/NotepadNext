@@ -5,6 +5,7 @@ All notable changes to NotepadNext will be documented in this file.
 ## [Unreleased]
 
 - Security: Windows Notepad++ DLL plugins now require an explicit, persisted SHA-256 trust decision; profile plugins are opt-in and `--safe-mode` disables native plugins for the session.
+- Reliability: External file changes now preserve the in-memory document on reload failure, distinguish deleted/restored/conflicted states, and block ordinary saves until the change is resolved explicitly.
 
 ## [v0.15] - 2026-08-03
 

@@ -1727,7 +1727,10 @@ void MainWindow::reloadFile()
     auto reply = QMessageBox::question(this, tr("Reload File"), tr("Are you sure you want to reload <b>%1</b>? Any unsaved changes will be lost.").arg(filePath));
 
     if (reply == QMessageBox::Yes) {
-        editor->reload();
+        QString error;
+        if (!editor->reload(&error)) {
+            QMessageBox::warning(this, tr("Reload Failed"), error);
+        }
     }
 }
 
@@ -1856,6 +1859,9 @@ bool MainWindow::saveFile(ScintillaNext *editor)
         QFileDevice::FileError error = editor->save();
         if (error == QFileDevice::NoError) {
             return true;
+        }
+        if (editor->lastSaveWasConflict()) {
+            return resolveExternalSaveConflict(editor);
         }
         else {
             showSaveErrorMessage(editor, error);
@@ -2539,31 +2545,143 @@ bool MainWindow::checkFileForModification(ScintillaNext *editor)
 {
     qInfo(Q_FUNC_INFO);
 
-    auto state = editor->checkFileForStateChange();
+    const auto state = editor->checkFileForStateChange();
 
     if (state == ScintillaNext::NoChange) {
         return false;
     }
-    else if (state == ScintillaNext::Modified) {
-        qInfo("ScintillaNext::Modified");
+    else if (state == ScintillaNext::Modified || state == ScintillaNext::Conflict) {
         const QString filePath = editor->getFilePath();
-        auto reply = QMessageBox::question(this, tr("Reload File"), tr("<b>%1</b> has been modified by another program. Do you want to reload it?").arg(filePath));
+        QMessageBox messageBox(QMessageBox::Warning,
+                               tr("External File Change"),
+                               tr("<b>%1</b> changed outside Notepad Next. Choose how to recover the in-memory document.").arg(filePath),
+                               QMessageBox::NoButton,
+                               this);
+        QPushButton *reloadButton = messageBox.addButton(tr("Reload"), QMessageBox::AcceptRole);
+        QPushButton *compareButton = messageBox.addButton(tr("Compare"), QMessageBox::ActionRole);
+        QPushButton *keepButton = messageBox.addButton(tr("Keep Mine"), QMessageBox::DestructiveRole);
+        QPushButton *saveAsButton = messageBox.addButton(tr("Save As..."), QMessageBox::ActionRole);
+        QPushButton *cancelButton = messageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+        messageBox.setDefaultButton(state == ScintillaNext::Modified ? reloadButton : compareButton);
+        messageBox.exec();
 
-        if (reply == QMessageBox::Yes) {
-            editor->reload();
+        if (messageBox.clickedButton() == reloadButton) {
+            QString error;
+            if (!editor->reload(&error)) {
+                QMessageBox::warning(this, tr("Reload Failed"), error);
+            }
         }
-        else {
+        else if (messageBox.clickedButton() == compareButton) {
+            openExternalVersion(editor);
             editor->omitModifications();
+        }
+        else if (messageBox.clickedButton() == keepButton) {
+            editor->omitModifications();
+        }
+        else if (messageBox.clickedButton() == saveAsButton) {
+            dockedEditor->switchToEditor(editor);
+            saveCurrentFileAsDialog();
+        }
+        else if (messageBox.clickedButton() == cancelButton) {
+            return false;
         }
     }
     else if (state == ScintillaNext::Deleted) {
-        qInfo("ScintillaNext::Deleted");
+        const QString filePath = editor->getFilePath();
+        QMessageBox messageBox(QMessageBox::Warning,
+                               tr("File Removed"),
+                               tr("<b>%1</b> was removed outside Notepad Next. Keep the buffer open or save it to a new path.").arg(filePath),
+                               QMessageBox::NoButton,
+                               this);
+        QPushButton *saveAsButton = messageBox.addButton(tr("Save As..."), QMessageBox::ActionRole);
+        QPushButton *keepButton = messageBox.addButton(tr("Keep Buffer"), QMessageBox::AcceptRole);
+        messageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+        messageBox.setDefaultButton(keepButton);
+        messageBox.exec();
+        if (messageBox.clickedButton() == saveAsButton) {
+            dockedEditor->switchToEditor(editor);
+            saveCurrentFileAsDialog();
+        }
     }
     else if (state == ScintillaNext::Restored) {
-        qInfo("ScintillaNext::Restored");
+        const QString filePath = editor->getFilePath();
+        QMessageBox messageBox(QMessageBox::Warning,
+                               tr("File Restored"),
+                               tr("<b>%1</b> is available again. Reload the restored file or keep the current buffer?").arg(filePath),
+                               QMessageBox::NoButton,
+                               this);
+        QPushButton *reloadButton = messageBox.addButton(tr("Reload"), QMessageBox::AcceptRole);
+        QPushButton *keepButton = messageBox.addButton(tr("Keep Buffer"), QMessageBox::DestructiveRole);
+        messageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+        messageBox.setDefaultButton(reloadButton);
+        messageBox.exec();
+        if (messageBox.clickedButton() == reloadButton) {
+            QString error;
+            if (!editor->reload(&error)) {
+                QMessageBox::warning(this, tr("Reload Failed"), error);
+            }
+        }
+        else if (messageBox.clickedButton() == keepButton) {
+            editor->omitModifications();
+        }
     }
 
     return true;
+}
+
+bool MainWindow::resolveExternalSaveConflict(ScintillaNext *editor)
+{
+    QMessageBox messageBox(QMessageBox::Warning,
+                           tr("External File Change"),
+                           tr("<b>%1</b> changed outside Notepad Next. Saving now would overwrite those changes.").arg(editor->getFilePath()),
+                           QMessageBox::NoButton,
+                           this);
+    QPushButton *compareButton = messageBox.addButton(tr("Compare"), QMessageBox::ActionRole);
+    QPushButton *reloadButton = messageBox.addButton(tr("Reload"), QMessageBox::AcceptRole);
+    QPushButton *saveAsButton = messageBox.addButton(tr("Save As..."), QMessageBox::ActionRole);
+    QPushButton *overwriteButton = messageBox.addButton(tr("Overwrite"), QMessageBox::DestructiveRole);
+    messageBox.addButton(tr("Cancel"), QMessageBox::RejectRole);
+    messageBox.setDefaultButton(compareButton);
+    messageBox.exec();
+
+    if (messageBox.clickedButton() == compareButton) {
+        openExternalVersion(editor);
+        return false;
+    }
+    if (messageBox.clickedButton() == reloadButton) {
+        QString error;
+        if (!editor->reload(&error)) {
+            QMessageBox::warning(this, tr("Reload Failed"), error);
+        }
+        return false;
+    }
+    if (messageBox.clickedButton() == saveAsButton) {
+        dockedEditor->switchToEditor(editor);
+        return saveCurrentFileAsDialog();
+    }
+    if (messageBox.clickedButton() == overwriteButton) {
+        const QFileDevice::FileError error = editor->save(true);
+        if (error == QFileDevice::NoError) {
+            return true;
+        }
+        showSaveErrorMessage(editor, error);
+    }
+
+    return false;
+}
+
+void MainWindow::openExternalVersion(ScintillaNext *editor)
+{
+    ScintillaNext *external = ScintillaNext::fromFile(editor->getFilePath());
+    if (!external) {
+        QMessageBox::warning(this, tr("Compare Failed"), tr("The external version could not be read."));
+        return;
+    }
+
+    external->detachFileInfo(tr("External version of %1").arg(editor->getName()));
+    external->setReadOnly(true);
+    app->getEditorManager()->manageEditor(external);
+    dockedEditor->switchToEditor(external);
 }
 
 void MainWindow::showSaveErrorMessage(ScintillaNext *editor, QFileDevice::FileError error)

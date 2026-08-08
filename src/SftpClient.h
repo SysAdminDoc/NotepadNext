@@ -19,6 +19,16 @@
 class SftpClient final
 {
 public:
+    struct RemoteFileIdentity
+    {
+        bool known = false;
+        bool exists = false;
+        bool hasSize = false;
+        bool hasModifiedTime = false;
+        quint64 size = 0;
+        quint64 modifiedTime = 0;
+    };
+
     struct Connection
     {
         QString host;
@@ -34,6 +44,11 @@ public:
         // This is populated only for the lifetime of an open editor. It is
         // never written to application settings or the session journal.
         QString expectedHostFingerprint;
+
+        // This is the remote version observed when the editor was opened or
+        // last saved. It is used to reject stale saves.
+        bool expectedRemoteKnown = false;
+        RemoteFileIdentity expectedRemote;
     };
 
     struct Result
@@ -41,6 +56,8 @@ public:
         QByteArray data;
         QString error;
         QString fingerprint;
+        RemoteFileIdentity remoteIdentity;
+        bool conflict = false;
 
         bool success() const { return error.isEmpty(); }
     };
@@ -57,6 +74,8 @@ public:
     static QString displayName(const Connection &connection);
     static QString defaultKnownHostsPath();
     static bool validateConnection(const Connection &connection, QString *error = nullptr);
+    static bool remoteIdentityMatches(const RemoteFileIdentity &expected,
+                                      const RemoteFileIdentity &actual);
 };
 
 #endif // SFTPCLIENT_H

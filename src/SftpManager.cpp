@@ -17,6 +17,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QSaveFile>
 #include <QRegularExpression>
 #include <QUuid>
 
@@ -84,6 +85,8 @@ void SftpManager::openRemote(QWidget *parent)
     }
 
     connection.expectedHostFingerprint = result.fingerprint;
+    connection.expectedRemoteKnown = true;
+    connection.expectedRemote = result.remoteIdentity;
     const QString remoteDisplayName = SftpClient::displayName(connection);
     remoteDocuments.insert(editor, RemoteDocument{connection, remoteDisplayName, temporaryPath});
     editor->setName(remoteDisplayName);
@@ -97,7 +100,7 @@ bool SftpManager::isRemote(const ScintillaNext *editor) const
 
 bool SftpManager::saveRemote(ScintillaNext *editor, QString *error)
 {
-    auto it = remoteDocuments.constFind(editor);
+    auto it = remoteDocuments.find(editor);
     if (it == remoteDocuments.constEnd()) {
         if (error) {
             *error = tr("The editor is not associated with an SFTP document.");
@@ -114,10 +117,18 @@ bool SftpManager::saveRemote(ScintillaNext *editor, QString *error)
         return false;
     }
 
-    QFile mirror(it->temporaryPath);
-    if (mirror.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        mirror.write(data);
-        mirror.close();
+    it->connection.expectedRemoteKnown = true;
+    it->connection.expectedRemote = result.remoteIdentity;
+
+    QSaveFile mirror(it->temporaryPath);
+    if (!mirror.open(QIODevice::WriteOnly)
+        || mirror.write(data) != data.size()
+        || !mirror.commit()) {
+        if (error) {
+            *error = tr("The remote file was saved, but the local mirror could not be updated: %1")
+                         .arg(mirror.errorString());
+        }
+        return false;
     }
     editor->omitModifications();
     if (error) {

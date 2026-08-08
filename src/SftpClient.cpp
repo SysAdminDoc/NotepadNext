@@ -16,6 +16,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QTcpSocket>
+#include <QUuid>
 
 #include <mutex>
 
@@ -50,6 +51,91 @@ QString sessionError(LIBSSH2_SESSION *session, int code)
 QString sftpError(LIBSSH2_SFTP *sftp)
 {
     return QStringLiteral("SFTP error %1").arg(libssh2_sftp_last_error(sftp));
+}
+
+bool statRemoteFile(LIBSSH2_SFTP *sftp,
+                    const QByteArray &path,
+                    SftpClient::RemoteFileIdentity *identity,
+                    QString *error)
+{
+    if (!identity) {
+        if (error) {
+            *error = QStringLiteral("Missing remote file identity output.");
+        }
+        return false;
+    }
+
+    *identity = {};
+    LIBSSH2_SFTP_ATTRIBUTES attributes = {};
+    const int result = libssh2_sftp_stat_ex(sftp,
+                                            path.constData(),
+                                            static_cast<unsigned int>(path.size()),
+                                            LIBSSH2_SFTP_STAT,
+                                            &attributes);
+    if (result != 0) {
+        if (libssh2_sftp_last_error(sftp) == LIBSSH2_FX_NO_SUCH_FILE) {
+            identity->known = true;
+            identity->exists = false;
+            return true;
+        }
+        if (error) {
+            *error = QStringLiteral("Unable to stat %1: %2")
+                         .arg(QString::fromUtf8(path), sftpError(sftp));
+        }
+        return false;
+    }
+
+    if ((attributes.flags & LIBSSH2_SFTP_ATTR_PERMISSIONS)
+        && !LIBSSH2_SFTP_S_ISREG(attributes.permissions)) {
+        if (error) {
+            *error = QStringLiteral("Remote path %1 is not a regular file.")
+                         .arg(QString::fromUtf8(path));
+        }
+        return false;
+    }
+
+    identity->known = true;
+    identity->exists = true;
+    identity->hasSize = (attributes.flags & LIBSSH2_SFTP_ATTR_SIZE) != 0;
+    identity->hasModifiedTime = (attributes.flags & LIBSSH2_SFTP_ATTR_ACMODTIME) != 0;
+    identity->size = attributes.filesize;
+    identity->modifiedTime = attributes.mtime;
+    if (!identity->hasSize || !identity->hasModifiedTime) {
+        if (error) {
+            *error = QStringLiteral("The SFTP server did not provide a complete remote version for %1.")
+                         .arg(QString::fromUtf8(path));
+        }
+        return false;
+    }
+    return true;
+}
+
+QString temporaryRemotePath(const QString &remotePath)
+{
+    const QString normalized = SftpClient::normalizedRemotePath(remotePath);
+    const int separator = normalized.lastIndexOf(QLatin1Char('/'));
+    const QString parent = separator <= 0 ? QStringLiteral("/") : normalized.left(separator);
+    QString fileName = normalized.mid(separator + 1);
+    if (fileName.isEmpty()) {
+        fileName = QStringLiteral("document");
+    }
+    return parent + QStringLiteral("/.") + fileName
+        + QStringLiteral(".notepadnext-")
+        + QUuid::createUuid().toString(QUuid::WithoutBraces)
+        + QStringLiteral(".tmp");
+}
+
+void removeRemoteFile(LIBSSH2_SFTP *sftp, const QByteArray &path)
+{
+    libssh2_sftp_unlink_ex(sftp,
+                           path.constData(),
+                           static_cast<unsigned int>(path.size()));
+}
+
+QString remoteConflictMessage(const QString &path)
+{
+    return QStringLiteral("The remote file %1 changed since it was opened. Download it again or resolve the conflict before saving.")
+        .arg(path);
 }
 
 int knownHostKeyType(int hostKeyType)
@@ -351,6 +437,21 @@ bool SftpClient::validateConnection(const Connection &connection, QString *error
     return true;
 }
 
+bool SftpClient::remoteIdentityMatches(const RemoteFileIdentity &expected,
+                                       const RemoteFileIdentity &actual)
+{
+    if (!expected.known || !actual.known || expected.exists != actual.exists) {
+        return false;
+    }
+    if (!expected.exists) {
+        return true;
+    }
+    return expected.hasSize && actual.hasSize
+        && expected.size == actual.size
+        && expected.hasModifiedTime && actual.hasModifiedTime
+        && expected.modifiedTime == actual.modifiedTime;
+}
+
 SftpClient::Result SftpClient::download(const Connection &connection,
                                         const HostKeyConfirmationCallback &confirmUnknownHost)
 {
@@ -368,6 +469,11 @@ SftpClient::Result SftpClient::download(const Connection &connection,
     result.fingerprint = fingerprint;
 
     const QByteArray remotePath = normalizedRemotePath(connection.remotePath).toUtf8();
+    RemoteFileIdentity before;
+    if (!statRemoteFile(context.sftp, remotePath, &before, &result.error)) {
+        return result;
+    }
+
     LIBSSH2_SFTP_HANDLE *handle = libssh2_sftp_open(context.sftp, remotePath.constData(), LIBSSH2_FXF_READ, 0);
     if (!handle) {
         result.error = QStringLiteral("Unable to open %1: %2")
@@ -399,7 +505,21 @@ SftpClient::Result SftpClient::download(const Connection &connection,
     if (libssh2_sftp_close(handle) != 0) {
         result.error = QStringLiteral("Unable to close %1: %2")
                            .arg(normalizedRemotePath(connection.remotePath), sftpError(context.sftp));
+        return result;
     }
+
+    RemoteFileIdentity after;
+    if (!statRemoteFile(context.sftp, remotePath, &after, &result.error)) {
+        result.data.clear();
+        return result;
+    }
+    if (!SftpClient::remoteIdentityMatches(before, after)) {
+        result.error = remoteConflictMessage(normalizedRemotePath(connection.remotePath));
+        result.conflict = true;
+        result.data.clear();
+        return result;
+    }
+    result.remoteIdentity = after;
     return result;
 }
 
@@ -425,13 +545,29 @@ SftpClient::Result SftpClient::upload(const Connection &connection,
     result.fingerprint = fingerprint;
 
     const QByteArray remotePath = normalizedRemotePath(connection.remotePath).toUtf8();
+    RemoteFileIdentity before;
+    if (!statRemoteFile(context.sftp, remotePath, &before, &result.error)) {
+        return result;
+    }
+    if (connection.expectedRemoteKnown
+        && !remoteIdentityMatches(connection.expectedRemote, before)) {
+        result.error = remoteConflictMessage(normalizedRemotePath(connection.remotePath));
+        result.conflict = true;
+        return result;
+    }
+
+    const QByteArray temporaryPath = temporaryRemotePath(connection.remotePath).toUtf8();
+    const auto cleanup = [&context, &temporaryPath]() {
+        removeRemoteFile(context.sftp, temporaryPath);
+    };
+
     LIBSSH2_SFTP_HANDLE *handle = libssh2_sftp_open(
         context.sftp,
-        remotePath.constData(),
-        LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
-        0644);
+        temporaryPath.constData(),
+        LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_EXCL,
+        0600);
     if (!handle) {
-        result.error = QStringLiteral("Unable to open %1 for writing: %2")
+        result.error = QStringLiteral("Unable to create a same-directory temporary upload for %1: %2")
                            .arg(normalizedRemotePath(connection.remotePath), sftpError(context.sftp));
         return result;
     }
@@ -439,22 +575,73 @@ SftpClient::Result SftpClient::upload(const Connection &connection,
     qsizetype offset = 0;
     while (offset < data.size()) {
         const ssize_t written = libssh2_sftp_write(
-            handle, data.constData() + offset, static_cast<size_t>(data.size() - offset));
+            handle,
+            data.constData() + offset,
+            static_cast<size_t>(data.size() - offset));
         if (written <= 0) {
-            result.error = QStringLiteral("Unable to write %1: %2")
+            result.error = QStringLiteral("Unable to write the temporary upload for %1: %2")
                                .arg(normalizedRemotePath(connection.remotePath), sftpError(context.sftp));
             libssh2_sftp_close(handle);
+            cleanup();
             return result;
         }
         offset += written;
     }
 
-    // Closing the handle commits the buffered write. The optional SFTP fsync
-    // extension is not implemented by every server, so do not make it a
-    // compatibility requirement for a successful save.
     if (libssh2_sftp_close(handle) != 0) {
-        result.error = QStringLiteral("Unable to close %1: %2")
+        result.error = QStringLiteral("Unable to close the temporary upload for %1: %2")
                            .arg(normalizedRemotePath(connection.remotePath), sftpError(context.sftp));
+        cleanup();
+        return result;
     }
+
+    RemoteFileIdentity temporaryIdentity;
+    if (!statRemoteFile(context.sftp, temporaryPath, &temporaryIdentity, &result.error)) {
+        cleanup();
+        return result;
+    }
+    if (!temporaryIdentity.exists || !temporaryIdentity.hasSize
+        || temporaryIdentity.size != static_cast<quint64>(data.size())) {
+        result.error = QStringLiteral("The temporary SFTP upload size did not match the document.");
+        cleanup();
+        return result;
+    }
+
+    RemoteFileIdentity beforeRename;
+    if (!statRemoteFile(context.sftp, remotePath, &beforeRename, &result.error)) {
+        cleanup();
+        return result;
+    }
+    const RemoteFileIdentity &baseline = connection.expectedRemoteKnown ? connection.expectedRemote : before;
+    if (!remoteIdentityMatches(baseline, beforeRename)) {
+        result.error = remoteConflictMessage(normalizedRemotePath(connection.remotePath));
+        result.conflict = true;
+        cleanup();
+        return result;
+    }
+
+    const int renameResult = libssh2_sftp_rename_ex(
+        context.sftp,
+        temporaryPath.constData(),
+        static_cast<unsigned int>(temporaryPath.size()),
+        remotePath.constData(),
+        static_cast<unsigned int>(remotePath.size()),
+        LIBSSH2_SFTP_RENAME_OVERWRITE | LIBSSH2_SFTP_RENAME_ATOMIC);
+    if (renameResult != 0) {
+        result.error = QStringLiteral("The SFTP server could not atomically replace %1; the original remote file was left unchanged: %2")
+                           .arg(normalizedRemotePath(connection.remotePath), sftpError(context.sftp));
+        cleanup();
+        return result;
+    }
+
+    RemoteFileIdentity after;
+    if (!statRemoteFile(context.sftp, remotePath, &after, &result.error)) {
+        return result;
+    }
+    if (!after.exists || !after.hasSize || after.size != static_cast<quint64>(data.size())) {
+        result.error = QStringLiteral("The committed remote file size did not match the document.");
+        return result;
+    }
+    result.remoteIdentity = after;
     return result;
 }

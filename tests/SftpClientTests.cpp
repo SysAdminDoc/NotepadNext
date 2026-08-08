@@ -16,6 +16,7 @@ private slots:
     void formatsDisplayNames();
     void rejectsIncompleteConnections();
     void acceptsPasswordConnection();
+    void comparesRemoteVersions();
 };
 
 void SftpClientTests::normalizesRemotePaths()
@@ -59,6 +60,31 @@ void SftpClientTests::acceptsPasswordConnection()
     QString error;
     QVERIFY(SftpClient::validateConnection(connection, &error));
     QVERIFY(error.isEmpty());
+}
+
+void SftpClientTests::comparesRemoteVersions()
+{
+    SftpClient::RemoteFileIdentity expected;
+    expected.known = true;
+    expected.exists = true;
+    expected.hasSize = true;
+    expected.hasModifiedTime = true;
+    expected.size = 42;
+    expected.modifiedTime = 100;
+
+    QVERIFY(SftpClient::remoteIdentityMatches(expected, expected));
+
+    auto changed = expected;
+    changed.modifiedTime++;
+    QVERIFY(!SftpClient::remoteIdentityMatches(expected, changed));
+
+    auto incomplete = expected;
+    incomplete.hasModifiedTime = false;
+    QVERIFY(!SftpClient::remoteIdentityMatches(expected, incomplete));
+
+    SftpClient::RemoteFileIdentity missing = expected;
+    missing.exists = false;
+    QVERIFY(!SftpClient::remoteIdentityMatches(expected, missing));
 }
 
 QTEST_MAIN(SftpClientTests)

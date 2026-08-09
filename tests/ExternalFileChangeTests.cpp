@@ -24,6 +24,25 @@ bool writeFile(const QString &path, const QByteArray &contents)
     return file.write(contents) == contents.size();
 }
 
+bool writeSizedFile(const QString &path, qint64 size)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return false;
+    }
+
+    const QByteArray chunk(1024 * 1024, 'x');
+    qint64 remaining = size;
+    while (remaining > 0) {
+        const qint64 written = file.write(chunk.constData(), qMin<qint64>(remaining, chunk.size()));
+        if (written <= 0) {
+            return false;
+        }
+        remaining -= written;
+    }
+    return file.flush();
+}
+
 QByteArray readFile(const QString &path)
 {
     QFile file(path);
@@ -67,6 +86,8 @@ private slots:
     void encodingMatrixRoundTrips();
     void encodingConversionReportsLossBeforeSave();
     void invalidBytesDoNotCrashAndReloadUpdatesEncoding();
+    void largeFilesUseReadOnlySafetyMode();
+    void oversizedFilesFailWithPolicyError();
 };
 
 void ExternalFileChangeTests::reloadFailurePreservesInMemoryDocument()
@@ -251,6 +272,47 @@ void ExternalFileChangeTests::invalidBytesDoNotCrashAndReloadUpdatesEncoding()
     std::unique_ptr<ScintillaNext> invalid(ScintillaNext::fromFile(invalidPath));
     QVERIFY(invalid != nullptr);
     QVERIFY(invalid->textLength() >= 0);
+}
+
+void ExternalFileChangeTests::largeFilesUseReadOnlySafetyMode()
+{
+    QTemporaryDir root;
+    QVERIFY(root.isValid());
+
+    const QList<qint64> sizes = {
+        ScintillaNext::LargeFileThresholdBytes,
+        100LL * 1024 * 1024,
+    };
+    for (const qint64 size : sizes) {
+        const QString path = root.filePath(QStringLiteral("large-%1.bin").arg(size));
+        QVERIFY(writeSizedFile(path, size));
+
+        QString error;
+        std::unique_ptr<ScintillaNext> editor(ScintillaNext::fromFile(path, false, &error));
+        QVERIFY2(editor != nullptr, qPrintable(error));
+        QVERIFY(editor->isLargeFileMode());
+        QVERIFY(editor->readOnly());
+        QCOMPARE(editor->textLength(), static_cast<int>(size));
+        QCOMPARE(editor->save(), QFileDevice::PermissionsError);
+        QVERIFY(editor->lastFileError().contains(QStringLiteral("read-only safety mode")));
+    }
+}
+
+void ExternalFileChangeTests::oversizedFilesFailWithPolicyError()
+{
+    QTemporaryDir root;
+    QVERIFY(root.isValid());
+    const QString path = root.filePath(QStringLiteral("oversized.bin"));
+
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    QVERIFY(file.resize(ScintillaNext::MaximumTextFileSizeBytes + 1));
+    file.close();
+
+    QString error;
+    std::unique_ptr<ScintillaNext> editor(ScintillaNext::fromFile(path, false, &error));
+    QVERIFY(editor == nullptr);
+    QVERIFY(error.contains(QStringLiteral("text-editor safety limit")));
 }
 
 QTEST_MAIN(ExternalFileChangeTests)

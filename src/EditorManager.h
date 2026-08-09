@@ -35,7 +35,7 @@ public:
     explicit EditorManager(ApplicationSettings *settings, QObject *parent = nullptr);
 
     ScintillaNext *createEditor(const QString &name);
-    ScintillaNext *createEditorFromFile(const QString &filePath, bool tryToCreate=false);
+    ScintillaNext *createEditorFromFile(const QString &filePath, bool tryToCreate=false, QString *error = nullptr);
 
     ScintillaNext *getEditorByFilePath(const QString &filePath);
 

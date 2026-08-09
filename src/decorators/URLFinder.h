@@ -41,6 +41,8 @@ public slots:
 private:
     QTimer *timer;
     int indicator;
+    int highlightedStart = -1;
+    int highlightedEnd = -1;
 };
 
 #endif // URLFINDER_H

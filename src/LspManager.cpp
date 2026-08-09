@@ -92,6 +92,9 @@ void LspManager::attachEditor(ScintillaNext *editor)
     connect(editor, &ScintillaNext::reloaded, this, [this, editor]() {
         editorModified(editor);
     });
+    connect(editor, &ScintillaNext::largeFileModeChanged, this, [this, editor]() {
+        configureEditor(editor);
+    });
     connect(editor, &ScintillaNext::dwellStart, this, [this, editor](int x, int y) {
         editorDwelled(editor, x, y);
     });
@@ -143,6 +146,11 @@ void LspManager::configureEditor(ScintillaNext *editor)
     }
     state.uri.clear();
     state.version = 1;
+
+    if (editor->isLargeFileMode()) {
+        qInfo("LSP is disabled for %s in large-file safety mode", qUtf8Printable(editor->getName()));
+        return;
+    }
 
     QString languageId;
     QString serverCommand;

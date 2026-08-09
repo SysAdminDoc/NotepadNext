@@ -38,7 +38,10 @@ SmartHighlighter::SmartHighlighter(ScintillaNext *editor) :
 
 void SmartHighlighter::notify(const NotificationData *pscn)
 {
-    if (pscn->nmhdr.code == Notification::UpdateUI && (FlagSet(pscn->updated, Update::Content) || FlagSet(pscn->updated, Update::Selection))) {
+    if (pscn->nmhdr.code == Notification::UpdateUI
+        && (FlagSet(pscn->updated, Update::Content)
+            || FlagSet(pscn->updated, Update::Selection)
+            || (editor->isLargeFileMode() && FlagSet(pscn->updated, Update::VScroll)))) {
         highlightCurrentView();
     }
 }
@@ -46,9 +49,22 @@ void SmartHighlighter::notify(const NotificationData *pscn)
 void SmartHighlighter::highlightCurrentView()
 {
     editor->setIndicatorCurrent(indicator);
-    editor->indicatorClearRange(0, editor->length());
+
+    const bool largeFileMode = editor->isLargeFileMode();
+    if (largeFileMode) {
+        if (highlightedStart >= 0 && highlightedEnd > highlightedStart) {
+            editor->indicatorClearRange(highlightedStart, highlightedEnd - highlightedStart);
+        }
+    }
+    else {
+        editor->indicatorClearRange(0, editor->length());
+        highlightedStart = -1;
+        highlightedEnd = -1;
+    }
 
     if (editor->selectionEmpty()) {
+        highlightedStart = -1;
+        highlightedEnd = -1;
         return;
     }
 
@@ -58,6 +74,8 @@ void SmartHighlighter::highlightCurrentView()
 
     // Make sure the current selection is valid
     if (selectionStart == selectionEnd) {
+        highlightedStart = -1;
+        highlightedEnd = -1;
         return;
     }
 
@@ -67,28 +85,44 @@ void SmartHighlighter::highlightCurrentView()
 
     // Make sure the selection is on word boundaries
     if (wordStart == wordEnd || wordStart != selectionStart || wordEnd != selectionEnd) {
+        highlightedStart = -1;
+        highlightedEnd = -1;
         return;
     }
 
     const QByteArray selText = editor->get_text_range(selectionStart, selectionEnd);
-
-    // TODO: Handle large files. By default Notepad++ only monitors the text on screen. However,
-    // that will not work when using a highlighted scroll bar. Testing with small files seems to
-    // have minimal impact. For large files, Qt can have a timer set to 0 to do heavier processing.
-    // Using threads seems to be a bit overkill and too burdensome to do it properly.
-
-    //const int startLine = editor->firstVisibleLine();
-    //const int linesOnScreen = editor->linesOnScreen();
-    //const int startPos = editor->positionFromLine(startLine);
-    //const int endPos = editor->lineEndPosition(startLine + linesOnScreen);
-
-    // TODO: skip hidden or folded lines?
-
-    Sci_TextToFind ttf {{0, (Sci_PositionCR)editor->length()}, selText.constData(), {-1, -1}};
     const int flags = SCFIND_MATCHCASE | SCFIND_WHOLEWORD;
 
-    while (editor->send(SCI_FINDTEXT, flags, (sptr_t)&ttf) != -1) {
-        editor->indicatorFillRange(ttf.chrgText.cpMin, ttf.chrgText.cpMax - ttf.chrgText.cpMin);
-        ttf.chrg.cpMin = ttf.chrgText.cpMax;
+    if (!largeFileMode) {
+        Sci_TextToFind ttf {{0, (Sci_PositionCR)editor->length()}, selText.constData(), {-1, -1}};
+        while (editor->send(SCI_FINDTEXT, flags, (sptr_t)&ttf) != -1) {
+            editor->indicatorFillRange(ttf.chrgText.cpMin, ttf.chrgText.cpMax - ttf.chrgText.cpMin);
+            ttf.chrg.cpMin = ttf.chrgText.cpMax;
+        }
+        return;
+    }
+
+    const int lineCount = static_cast<int>(editor->lineCount());
+    const int firstVisibleLine = qMax(0, editor->firstVisibleLine());
+    const int firstLine = qBound(0, static_cast<int>(editor->docLineFromVisible(firstVisibleLine)), qMax(0, lineCount - 1));
+    const int lastVisibleLine = firstVisibleLine + qMax(1, editor->linesOnScreen()) + 1;
+    const int endLine = qMin(lineCount, static_cast<int>(editor->docLineFromVisible(lastVisibleLine)) + 1);
+    highlightedStart = editor->positionFromLine(firstLine);
+    highlightedEnd = endLine >= lineCount ? editor->length() : editor->positionFromLine(endLine);
+
+    for (int line = firstLine; line < endLine;) {
+        if (!editor->lineVisible(line)) {
+            line = qMax(line + 1, editor->lastChild(line, -1) + 1);
+            continue;
+        }
+
+        const int lineStart = editor->positionFromLine(line);
+        const int lineEnd = editor->lineEndPosition(line);
+        Sci_TextToFind ttf {{lineStart, lineEnd}, selText.constData(), {-1, -1}};
+        while (editor->send(SCI_FINDTEXT, flags, (sptr_t)&ttf) != -1) {
+            editor->indicatorFillRange(ttf.chrgText.cpMin, ttf.chrgText.cpMax - ttf.chrgText.cpMin);
+            ttf.chrg.cpMin = ttf.chrgText.cpMax;
+        }
+        ++line;
     }
 }

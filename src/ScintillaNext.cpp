@@ -269,7 +269,7 @@ void ScintillaNext::mouseReleaseEvent(QMouseEvent *event)
     ScintillaEdit::mouseReleaseEvent(event);
 }
 
-ScintillaNext *ScintillaNext::fromFile(const QString &filePath, bool tryToCreate)
+ScintillaNext *ScintillaNext::fromFile(const QString &filePath, bool tryToCreate, QString *error)
 {
     QFile file(filePath);
     ScintillaNext *editor = new ScintillaNext(file.fileName());
@@ -284,7 +284,7 @@ ScintillaNext *ScintillaNext::fromFile(const QString &filePath, bool tryToCreate
         f.close();
     }
 
-    bool readSuccessful = editor->readFromDisk(file);
+    bool readSuccessful = editor->readFromDisk(file, error);
 
     if (!readSuccessful) {
         delete editor;
@@ -566,6 +566,11 @@ QFileDevice::FileError ScintillaNext::save(bool allowExternalChange)
 
     lastSaveConflict = false;
     lastFileErrorMessage.clear();
+
+    if (largeFileMode) {
+        lastFileErrorMessage = tr("Large files are opened in read-only safety mode and cannot be saved from the editor.");
+        return QFileDevice::PermissionsError;
+    }
 
     if (!allowExternalChange && bufferType == BufferType::File
         && (externalChangePending || !diskMatchesSnapshot(true))) {
@@ -928,6 +933,12 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
     }
 
     const qint64 sourceSize = file.size();
+    if (sourceSize > MaximumTextFileSizeBytes) {
+        const QString message = tr("The file is larger than the %1 MiB text-editor safety limit. Open it in the Hex Editor or use an external tool.")
+            .arg(MaximumTextFileSizeBytes / (1024 * 1024));
+        file.close();
+        return fail(message);
+    }
     if (sourceSize > std::numeric_limits<int>::max()) {
         const QString message = tr("The file is too large to load into the editor.");
         file.close();
@@ -949,6 +960,12 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
                 return fail(message);
             }
             break;
+        }
+        if (encodedData.size() > MaximumTextFileSizeBytes - chunk.size()) {
+            const QString message = tr("The file grew beyond the %1 MiB text-editor safety limit while it was being read.")
+                .arg(MaximumTextFileSizeBytes / (1024 * 1024));
+            file.close();
+            return fail(message);
         }
         encodedData.append(chunk);
     }
@@ -1024,6 +1041,7 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
     const BomType previousBom = bomType;
     const QByteArray previousEncoding = encodingName;
     const bool previousEncodingAutoDetected = encodingAutoDetected;
+    const bool previousLargeFileMode = largeFileMode;
     const bool previousReadOnly = readOnly();
 
     allocate(decodedData.size());
@@ -1054,6 +1072,7 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
         bomType = previousBom;
         encodingName = previousEncoding;
         encodingAutoDetected = previousEncodingAutoDetected;
+        largeFileMode = previousLargeFileMode;
         setReadOnly(previousReadOnly);
         return fail(tr("The editor could not apply the loaded document."));
     }
@@ -1062,10 +1081,15 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
     encodingName = loadedEncoding;
     encodingAutoDetected = loadedBom == BomType::None;
     encodingDirty = false;
+    const bool wasLargeFileMode = largeFileMode;
+    largeFileMode = sourceSize >= LargeFileThresholdBytes;
     diskFingerprint = QCryptographicHash::hash(encodedData, QCryptographicHash::Sha256);
-    setReadOnly(!writable);
-    if (!writable) {
+    setReadOnly(!writable || largeFileMode);
+    if (!writable || largeFileMode) {
         qInfo("Setting file as read-only");
+    }
+    if (wasLargeFileMode != largeFileMode) {
+        emit largeFileModeChanged(largeFileMode);
     }
 
     return true;

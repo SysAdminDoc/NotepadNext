@@ -54,6 +54,10 @@ bool StickyScroll::eventFilter(QObject *watched, QEvent *event)
 
 void StickyScroll::editorUpdated(Scintilla::Update updated)
 {
+    if (editor->isLargeFileMode()) {
+        return;
+    }
+
     if (Scintilla::FlagSet(updated, Scintilla::Update::Content) ||
         Scintilla::FlagSet(updated, Scintilla::Update::VScroll)) {
         refresh();
@@ -62,6 +66,13 @@ void StickyScroll::editorUpdated(Scintilla::Update updated)
 
 void StickyScroll::refresh()
 {
+    if (editor->isLargeFileMode()) {
+        labels.clear();
+        setFixedHeight(0);
+        update();
+        return;
+    }
+
     const QVector<QString> newLabels = currentLabels();
     if (newLabels == labels) {
         return;

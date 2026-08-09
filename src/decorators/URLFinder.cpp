@@ -60,6 +60,16 @@ void URLFinder::findURLs()
 {
     clearURLs();
 
+    if (editor->isLargeFileMode()) {
+        const int lineCount = static_cast<int>(editor->lineCount());
+        const int firstVisibleLine = qMax(0, editor->firstVisibleLine());
+        const int firstLine = qBound(0, static_cast<int>(editor->docLineFromVisible(firstVisibleLine)), qMax(0, lineCount - 1));
+        const int lastVisibleLine = firstVisibleLine + qMax(1, editor->linesOnScreen()) + 1;
+        const int endLine = qMin(lineCount, static_cast<int>(editor->docLineFromVisible(lastVisibleLine)) + 1);
+        highlightedStart = editor->positionFromLine(firstLine);
+        highlightedEnd = endLine >= lineCount ? editor->length() : editor->positionFromLine(endLine);
+    }
+
     int currentLine = editor->docLineFromVisible(editor->firstVisibleLine());
     int linesLeftToProcess = editor->linesOnScreen();
     const int flags = SCFIND_REGEXP;
@@ -115,7 +125,16 @@ void URLFinder::findURLs()
 void URLFinder::clearURLs()
 {
     editor->setIndicatorCurrent(indicator);
-    editor->indicatorClearRange(0, editor->length());
+    if (editor->isLargeFileMode()) {
+        if (highlightedStart >= 0 && highlightedEnd > highlightedStart) {
+            editor->indicatorClearRange(highlightedStart, highlightedEnd - highlightedStart);
+        }
+        highlightedStart = -1;
+        highlightedEnd = -1;
+    }
+    else {
+        editor->indicatorClearRange(0, editor->length());
+    }
 }
 
 void URLFinder::notify(const Scintilla::NotificationData *pscn)

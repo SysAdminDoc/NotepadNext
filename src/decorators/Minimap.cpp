@@ -56,6 +56,10 @@ bool Minimap::eventFilter(QObject *watched, QEvent *event)
 
 void Minimap::editorUpdated(Scintilla::Update updated)
 {
+    if (editor->isLargeFileMode()) {
+        return;
+    }
+
     if (Scintilla::FlagSet(updated, Scintilla::Update::Content) ||
         Scintilla::FlagSet(updated, Scintilla::Update::Selection) ||
         Scintilla::FlagSet(updated, Scintilla::Update::VScroll)) {
@@ -65,6 +69,10 @@ void Minimap::editorUpdated(Scintilla::Update updated)
 
 void Minimap::editorModified(const Scintilla::NotificationData *notification)
 {
+    if (editor->isLargeFileMode()) {
+        return;
+    }
+
     if (!notification || notification->nmhdr.code != Scintilla::Notification::Modified) {
         return;
     }

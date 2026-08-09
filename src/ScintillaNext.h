@@ -36,6 +36,9 @@ class ScintillaNext : public ScintillaEdit
     Q_OBJECT
 
 public:
+    static constexpr qint64 LargeFileThresholdBytes = 50LL * 1024 * 1024;
+    static constexpr qint64 MaximumTextFileSizeBytes = 128LL * 1024 * 1024;
+
     static bool isRangeValid(const Sci_CharacterRange &range)
     {
         return range.cpMin != INVALID_POSITION && range.cpMax != INVALID_POSITION;
@@ -44,7 +47,7 @@ public:
     explicit ScintillaNext(QString name, QWidget *parent = Q_NULLPTR);
     virtual ~ScintillaNext();
 
-    static ScintillaNext *fromFile(const QString &filePath, bool tryToCreate=false);
+    static ScintillaNext *fromFile(const QString &filePath, bool tryToCreate=false, QString *error = nullptr);
     static QString eolModeToString(int eolMode);
     static int stringToEolMode(QString eolMode);
 
@@ -84,6 +87,7 @@ public:
 
     bool isSavedToDisk() const;
     bool canSaveToDisk() const;
+    bool isLargeFileMode() const { return largeFileMode; }
 
     QString getName() const { return name; }
     void setName(const QString &name);
@@ -162,6 +166,7 @@ signals:
     void closed();
     void renamed();
     void encodingChanged();
+    void largeFileModeChanged(bool enabled);
 
     void lexerChanged();
     void reloaded();
@@ -180,6 +185,7 @@ private:
     QByteArray encodingName = QByteArrayLiteral("UTF-8");
     bool encodingAutoDetected = false;
     bool encodingDirty = false;
+    bool largeFileMode = false;
     QFileInfo fileInfo;
     QDateTime modifiedTime;
     RangeAllocator indicatorResources;

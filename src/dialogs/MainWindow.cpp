@@ -1755,6 +1755,7 @@ int MainWindow::openFileList(const QStringList &fileNames)
 
         // Search currently open editors to see if it is already open
         ScintillaNext *editor = app->getEditorManager()->getEditorByFilePath(filePath);
+        QString loadError;
 
         if (editor == Q_NULLPTR) {
             QFileInfo fileInfo(filePath);
@@ -1774,7 +1775,7 @@ int MainWindow::openFileList(const QStringList &fileNames)
                 auto reply = QMessageBox::question(this, tr("Create File"), tr("<b>%1</b> does not exist. Do you want to create it?").arg(filePath));
 
                 if (reply == QMessageBox::Yes) {
-                    editor = app->getEditorManager()->createEditorFromFile(filePath, true);
+                    editor = app->getEditorManager()->createEditorFromFile(filePath, true, &loadError);
                 }
                 else {
                     // Make sure it is not still in the recent files list still.
@@ -1785,13 +1786,16 @@ int MainWindow::openFileList(const QStringList &fileNames)
                 }
             }
             else {
-                editor = app->getEditorManager()->createEditorFromFile(filePath);
+                editor = app->getEditorManager()->createEditorFromFile(filePath, false, &loadError);
             }
         }
 
         if (editor) {
             openedEditors.append(editor);
             ++openedCount;
+        }
+        else if (!loadError.isEmpty()) {
+            QMessageBox::warning(this, tr("Open Failed"), tr("Unable to open <b>%1</b>.<br><br>%2").arg(filePath, loadError));
         }
     }
 
@@ -3008,6 +3012,11 @@ void MainWindow::addEditor(ScintillaNext *editor)
             ui->statusBar->refresh(editor);
         }
         updateSaveStatusBasedUi(editor);
+    });
+    connect(editor, &ScintillaNext::largeFileModeChanged, this, [=, this]() {
+        if (editor == currentEditor()) {
+            updateGui(editor);
+        }
     });
     connect(editor, &ScintillaNext::renamed, this, [= ,this]() { detectLanguage(editor); });
     connect(editor, &ScintillaNext::renamed, this, [=, this]() {

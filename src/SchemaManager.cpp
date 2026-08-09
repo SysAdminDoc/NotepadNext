@@ -105,6 +105,10 @@ void SchemaManager::attachEditor(ScintillaNext *editor)
     connect(editor, &ScintillaNext::reloaded, this, [this, editor]() {
         editorModified(editor);
     });
+    connect(editor, &ScintillaNext::largeFileModeChanged, this, [this, editor]() {
+        clearDiagnostics(editor);
+        scheduleValidation(editor);
+    });
 
     QMetaObject::invokeMethod(this, [this, editor]() {
         if (states.contains(editor)) {
@@ -200,6 +204,11 @@ SchemaValidator::Result SchemaManager::setSchemaFile(ScintillaNext *editor, cons
         return errorResult(QStringLiteral("The document is no longer open"));
     }
 
+    if (editor->isLargeFileMode()) {
+        clearDiagnostics(editor);
+        return errorResult(QStringLiteral("Schema validation is disabled in large-file safety mode"));
+    }
+
     states[editor].explicitSchemaPath = QFileInfo(schemaPath).absoluteFilePath();
     return validateNow(editor);
 }
@@ -218,6 +227,11 @@ SchemaValidator::Result SchemaManager::validateNow(ScintillaNext *editor)
 {
     if (!editor || !states.contains(editor)) {
         return errorResult(QStringLiteral("The document is no longer open"));
+    }
+
+    if (editor->isLargeFileMode()) {
+        clearDiagnostics(editor);
+        return errorResult(QStringLiteral("Schema validation is disabled in large-file safety mode"));
     }
 
     const SchemaValidator::Format format = SchemaValidator::formatForLanguage(editor->languageName);

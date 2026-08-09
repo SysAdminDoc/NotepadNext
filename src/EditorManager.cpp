@@ -152,9 +152,9 @@ ScintillaNext *EditorManager::createEditor(const QString &name)
     return editor;
 }
 
-ScintillaNext *EditorManager::createEditorFromFile(const QString &filePath, bool tryToCreate)
+ScintillaNext *EditorManager::createEditorFromFile(const QString &filePath, bool tryToCreate, QString *error)
 {
-    ScintillaNext *editor = ScintillaNext::fromFile(filePath, tryToCreate);
+    ScintillaNext *editor = ScintillaNext::fromFile(filePath, tryToCreate, error);
 
     if (editor) {
         manageEditor(editor);
@@ -314,11 +314,13 @@ void EditorManager::setupEditor(ScintillaNext *editor)
     }
 
     // Decorators
+    const bool largeFileMode = editor->isLargeFileMode();
+
     SmartHighlighter *s = new SmartHighlighter(editor);
     s->setEnabled(true);
 
     HighlightedScrollBarDecorator *h = new HighlightedScrollBarDecorator(editor);
-    h->setEnabled(true);
+    h->setEnabled(!largeFileMode);
 
     BraceMatch *b = new BraceMatch(editor);
     b->setEnabled(true);
@@ -336,7 +338,7 @@ void EditorManager::setupEditor(ScintillaNext *editor)
     ai->setEnabled(true);
 
     AutoCompletion *ac = new AutoCompletion(editor);
-    ac->setEnabled(settings->autoCompletion());
+    ac->setEnabled(settings->autoCompletion() && !largeFileMode);
 
     URLFinder *uf = new URLFinder(editor);
     uf->setEnabled(settings->urlHighlighting());
@@ -345,8 +347,34 @@ void EditorManager::setupEditor(ScintillaNext *editor)
     bm->setEnabled(true);
 
     new HTMLAutoCompleteDecorator(editor);
-    new StickyScroll(editor);
-    new Minimap(editor);
+    StickyScroll *stickyScroll = largeFileMode ? nullptr : new StickyScroll(editor);
+    Minimap *minimap = largeFileMode ? nullptr : new Minimap(editor);
+    ApplicationSettings *applicationSettings = settings;
+    connect(editor, &ScintillaNext::largeFileModeChanged, editor,
+            [editor, s, h, ac, applicationSettings, stickyScroll, minimap](bool enabled) mutable {
+        s->setEnabled(true);
+        h->setEnabled(!enabled);
+        ac->setEnabled(applicationSettings->autoCompletion() && !enabled);
+
+        if (enabled) {
+            if (stickyScroll) {
+                stickyScroll->hide();
+            }
+            if (minimap) {
+                minimap->hide();
+            }
+            return;
+        }
+
+        if (!stickyScroll) {
+            stickyScroll = new StickyScroll(editor);
+        }
+        if (!minimap) {
+            minimap = new Minimap(editor);
+        }
+        stickyScroll->show();
+        minimap->show();
+    });
 }
 
 void EditorManager::purgeOldEditorPointers()

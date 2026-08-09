@@ -92,6 +92,7 @@ void GitManager::attachEditor(ScintillaNext *editor)
     connect(editor, &ScintillaNext::renamed, this, [this, editor]() { scheduleRefresh(editor); });
     connect(editor, &ScintillaNext::saved, this, [this, editor]() { scheduleRefresh(editor); });
     connect(editor, &ScintillaNext::reloaded, this, [this, editor]() { scheduleRefresh(editor); });
+    connect(editor, &ScintillaNext::largeFileModeChanged, this, [this, editor]() { scheduleRefresh(editor); });
 
     QMetaObject::invokeMethod(this, [this, editor]() {
         if (states.contains(editor)) {
@@ -190,6 +191,11 @@ void GitManager::refreshNow(ScintillaNext *editor)
 
     clearDecorations(editor);
     it->fileState = {};
+    if (editor->isLargeFileMode()) {
+        qInfo("Git decorations are disabled for %s in large-file safety mode", qUtf8Printable(editor->getName()));
+        emit gitStateChanged(editor);
+        return;
+    }
     if (editor->isFile()) {
         const QString filePath = editor->getFilePath();
         if (!filePath.isEmpty()) {

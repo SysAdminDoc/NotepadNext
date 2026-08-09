@@ -73,6 +73,10 @@ void HighlightedScrollBar::paintEvent(QPaintEvent *event)
 
 void HighlightedScrollBar::drawMarker(QPainter &p, int marker)
 {
+    if (editor->isLargeFileMode()) {
+        return;
+    }
+
     // NOTE: SCI_MARKERGETBACK doesn't exist...so can't use the marker color
     int curLine = 0;
 
@@ -85,6 +89,10 @@ void HighlightedScrollBar::drawMarker(QPainter &p, int marker)
 
 void HighlightedScrollBar::drawIndicator(QPainter &p, int indicator)
 {
+    if (editor->isLargeFileMode()) {
+        return;
+    }
+
     int curPos = editor->indicatorEnd(indicator, 0);
     int color = editor->indicFore(indicator);
 

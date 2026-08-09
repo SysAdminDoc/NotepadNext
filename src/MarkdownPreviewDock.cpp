@@ -95,6 +95,7 @@ void MarkdownPreviewDock::setEditor(ScintillaNext *newEditor)
         }));
         editorConnections.append(connect(editor, &ScintillaNext::lexerChanged, this, &MarkdownPreviewDock::scheduleRefresh));
         editorConnections.append(connect(editor, &ScintillaNext::renamed, this, &MarkdownPreviewDock::scheduleRefresh));
+        editorConnections.append(connect(editor, &ScintillaNext::largeFileModeChanged, this, &MarkdownPreviewDock::scheduleRefresh));
     }
 
     scheduleRefresh();
@@ -116,6 +117,11 @@ void MarkdownPreviewDock::refresh()
 {
     if (!editor) {
         clearPreview(tr("Open a Markdown document to see its live preview."));
+        return;
+    }
+
+    if (editor->isLargeFileMode()) {
+        clearPreview(tr("Markdown preview is disabled in large-file safety mode."));
         return;
     }
 

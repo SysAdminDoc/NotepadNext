@@ -75,11 +75,13 @@ void EditorInfoStatusBar::connectToEditor(ScintillaNext *editor)
     disconnect(editorUiUpdated);
     disconnect(documentLexerChanged);
     disconnect(documentEncodingChanged);
+    disconnect(documentLargeFileModeChanged);
 
     // Connect to the new editor
     editorUiUpdated = connect(editor, &ScintillaNext::updateUi, this, &EditorInfoStatusBar::editorUpdated);
     documentLexerChanged = connect(editor, &ScintillaNext::lexerChanged, this, [=]() { updateLanguage(editor); });
     documentEncodingChanged = connect(editor, &ScintillaNext::encodingChanged, this, [=]() { updateEncoding(editor); });
+    documentLargeFileModeChanged = connect(editor, &ScintillaNext::largeFileModeChanged, this, [=]() { refresh(editor); });
 
     refresh(editor);
 }
@@ -101,6 +103,9 @@ void EditorInfoStatusBar::updateDocumentSize(ScintillaNext *editor)
 {
     QString sizeText = tr("Length: %L1    Lines: %L2").arg(editor->length()).arg(editor->lineCount());
     docSize->setText(sizeText);
+    docSize->setToolTip(editor->isLargeFileMode()
+                        ? tr("Large-file safety mode: editing and automatic whole-document features are disabled.")
+                        : QString());
 }
 
 void EditorInfoStatusBar::updateSelectionInfo(ScintillaNext *editor)
@@ -128,7 +133,14 @@ void EditorInfoStatusBar::updateSelectionInfo(ScintillaNext *editor)
 
 void EditorInfoStatusBar::updateLanguage(ScintillaNext *editor)
 {
-    docType->setText(editor->languageName);
+    QString text = editor->languageName;
+    if (editor->isLargeFileMode()) {
+        text += tr(" | Large file: read-only safety mode");
+    }
+    docType->setText(text);
+    docType->setToolTip(editor->isLargeFileMode()
+                        ? tr("Large-file safety mode disables editing and expensive whole-document features.")
+                        : QString());
 }
 
 

@@ -48,6 +48,7 @@
 #include <QThread>
 #include <QFontDatabase>
 #include <QStyleFactory>
+#include <QTextCodec>
 #include <QVBoxLayout>
 
 #ifdef Q_OS_WIN
@@ -135,6 +136,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 #endif
     setupThemeMenu();
     setupIconThemeMenu();
+    setupEncodingMenu();
     applyCustomShortcuts();
 
     auto *commandPaletteAction = new QAction(tr("Command Palette"), this);
@@ -1530,6 +1532,143 @@ void MainWindow::setupLanguageMenu()
     }
 }
 
+QAction *MainWindow::addEncodingAction(const QString &label, const QByteArray &codecName, ScintillaNext::BomType bom)
+{
+    QAction *action = new QAction(label, this);
+    action->setCheckable(true);
+
+    QVariantMap data;
+    data.insert(QStringLiteral("codec"), codecName);
+    data.insert(QStringLiteral("bom"), static_cast<int>(bom));
+    action->setData(data);
+
+    encodingActionGroup->addAction(action);
+    ui->menuEncodings->addAction(action);
+    return action;
+}
+
+void MainWindow::setupEncodingMenu()
+{
+    qInfo(Q_FUNC_INFO);
+
+    encodingActionGroup = new QActionGroup(this);
+    encodingActionGroup->setExclusive(true);
+
+    encodingDetectionNoticeAction = new QAction(this);
+    encodingDetectionNoticeAction->setEnabled(false);
+    encodingDetectionNoticeAction->setVisible(false);
+    ui->menuEncodings->addAction(encodingDetectionNoticeAction);
+    ui->menuEncodings->addSeparator();
+
+    addEncodingAction(tr("UTF-8"), QByteArrayLiteral("UTF-8"), ScintillaNext::BomType::None);
+    addEncodingAction(tr("UTF-8 BOM"), QByteArrayLiteral("UTF-8"), ScintillaNext::BomType::Utf8);
+    addEncodingAction(tr("UTF-16 LE"), QByteArrayLiteral("UTF-16LE"), ScintillaNext::BomType::None);
+    addEncodingAction(tr("UTF-16 LE BOM"), QByteArrayLiteral("UTF-16LE"), ScintillaNext::BomType::Utf16LE);
+    addEncodingAction(tr("UTF-16 BE"), QByteArrayLiteral("UTF-16BE"), ScintillaNext::BomType::None);
+    addEncodingAction(tr("UTF-16 BE BOM"), QByteArrayLiteral("UTF-16BE"), ScintillaNext::BomType::Utf16BE);
+    addEncodingAction(tr("UTF-32 LE"), QByteArrayLiteral("UTF-32LE"), ScintillaNext::BomType::None);
+    addEncodingAction(tr("UTF-32 LE BOM"), QByteArrayLiteral("UTF-32LE"), ScintillaNext::BomType::Utf32LE);
+    addEncodingAction(tr("UTF-32 BE"), QByteArrayLiteral("UTF-32BE"), ScintillaNext::BomType::None);
+    addEncodingAction(tr("UTF-32 BE BOM"), QByteArrayLiteral("UTF-32BE"), ScintillaNext::BomType::Utf32BE);
+
+    ui->menuEncodings->addSeparator();
+    const QList<QByteArray> legacyCodecs = {
+        QByteArrayLiteral("Windows-1252"),
+        QByteArrayLiteral("Windows-1251"),
+        QByteArrayLiteral("Windows-1250"),
+        QByteArrayLiteral("ISO-8859-1"),
+        QByteArrayLiteral("ISO-8859-15"),
+        QByteArrayLiteral("Shift_JIS"),
+        QByteArrayLiteral("GB18030"),
+        QByteArrayLiteral("Big5"),
+        QByteArrayLiteral("EUC-KR"),
+        QByteArrayLiteral("KOI8-R"),
+    };
+
+    for (const QByteArray &requestedName : legacyCodecs) {
+        QTextCodec *codec = QTextCodec::codecForName(requestedName);
+        if (codec == nullptr) {
+            continue;
+        }
+
+        const QByteArray canonicalName = codec->name();
+        bool alreadyAdded = false;
+        for (QAction *action : encodingActionGroup->actions()) {
+            const QVariantMap data = action->data().toMap();
+            if (data.value(QStringLiteral("codec")).toByteArray().compare(canonicalName, Qt::CaseInsensitive) == 0
+                && data.value(QStringLiteral("bom")).toInt() == static_cast<int>(ScintillaNext::BomType::None)) {
+                alreadyAdded = true;
+                break;
+            }
+        }
+
+        if (!alreadyAdded) {
+            addEncodingAction(QString::fromLatin1(canonicalName), canonicalName, ScintillaNext::BomType::None);
+        }
+    }
+
+    connect(encodingActionGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+        ScintillaNext *editor = currentEditor();
+        if (editor == nullptr) {
+            return;
+        }
+
+        const QVariantMap data = action->data().toMap();
+        QString error;
+        if (!editor->setEncoding(data.value(QStringLiteral("codec")).toByteArray(),
+                                 static_cast<ScintillaNext::BomType>(data.value(QStringLiteral("bom")).toInt()),
+                                 &error)) {
+            QMessageBox::warning(this, tr("Encoding"), error);
+            updateEncodingBasedUi(editor);
+            return;
+        }
+
+        updateEncodingBasedUi(editor);
+        ui->statusBar->refresh(editor);
+        updateSaveStatusBasedUi(editor);
+    });
+}
+
+void MainWindow::updateEncodingBasedUi(ScintillaNext *editor)
+{
+    qInfo(Q_FUNC_INFO);
+
+    ui->menuEncodings->setEnabled(editor != nullptr);
+    if (encodingDetectionNoticeAction != nullptr) {
+        const QString detectedName = editor == nullptr ? QString() : QString::fromLatin1(editor->encoding());
+        encodingDetectionNoticeAction->setText(tr("Detected %1 automatically; files without a BOM can be ambiguous. Choose an encoding to confirm")
+                                               .arg(detectedName));
+        encodingDetectionNoticeAction->setVisible(editor != nullptr && editor->encodingWasDetected());
+    }
+
+    if (editor == nullptr) {
+        for (QAction *action : encodingActionGroup->actions()) {
+            action->setChecked(false);
+        }
+        return;
+    }
+
+    QAction *matchingAction = nullptr;
+    for (QAction *action : encodingActionGroup->actions()) {
+        const QVariantMap data = action->data().toMap();
+        const bool matches = data.value(QStringLiteral("codec")).toByteArray().compare(editor->encoding(), Qt::CaseInsensitive) == 0
+            && data.value(QStringLiteral("bom")).toInt() == static_cast<int>(editor->bom());
+        action->setChecked(matches);
+        if (matches) {
+            matchingAction = action;
+        }
+    }
+
+    if (matchingAction == nullptr) {
+        QString label = QString::fromLatin1(editor->encoding());
+        if (editor->bom() != ScintillaNext::BomType::None) {
+            label += tr(" BOM");
+        }
+        matchingAction = addEncodingAction(label, editor->encoding(), editor->bom());
+        matchingAction->setChecked(true);
+    }
+}
+
 ScintillaNext *MainWindow::currentEditor() const
 {
     return dockedEditor->getCurrentEditor();
@@ -2292,6 +2431,7 @@ void MainWindow::updateGui(ScintillaNext *editor)
     updateFileStatusBasedUi(editor);
     updateSaveStatusBasedUi(editor);
     updateEOLBasedUi(editor);
+    updateEncodingBasedUi(editor);
     updateEditorPositionBasedUi();
     updateSelectionBasedUi(editor);
     updateContentBasedUi(editor);
@@ -2862,6 +3002,13 @@ void MainWindow::addEditor(ScintillaNext *editor)
     // TODO: look at editor inspector as an example to ensure updates are only coming from one editor.
     // Can save the connection objects and disconnected from them and only connect to the editor as it is activated.
     connect(editor, &ScintillaNext::savePointChanged, this, [=, this]() { updateSaveStatusBasedUi(editor); });
+    connect(editor, &ScintillaNext::encodingChanged, this, [=, this]() {
+        if (editor == currentEditor()) {
+            updateEncodingBasedUi(editor);
+            ui->statusBar->refresh(editor);
+        }
+        updateSaveStatusBasedUi(editor);
+    });
     connect(editor, &ScintillaNext::renamed, this, [= ,this]() { detectLanguage(editor); });
     connect(editor, &ScintillaNext::renamed, this, [=, this]() {
         editor->setAccessibleName(tr("Editor: %1").arg(editor->getName()));

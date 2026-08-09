@@ -9,6 +9,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Reliability: SFTP saves now verify remote size/mtime, upload to a same-directory temporary path, validate the transfer, and atomically replace the destination without silently overwriting concurrent edits.
 - Reliability: Recursive directory drops now avoid symlinks, de-duplicate canonical paths, enforce depth/file/byte/time limits, and provide cancelable background scanning with skipped-item reporting.
 - Reliability: Document, export, and session writes now share checked atomic replacement, preserve previous output on failure, and surface actionable write errors.
+- Added: The Encoding menu now exposes UTF-8/16/32 BOM choices and available legacy codecs, marks auto-detected no-BOM files, keeps the status bar synchronized, and refuses lossy saves with an actionable error.
 
 ## [v0.15] - 2026-08-03
 

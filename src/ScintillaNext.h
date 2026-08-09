@@ -119,6 +119,9 @@ public:
     };
 
     BomType bom() const { return bomType; }
+    QByteArray encoding() const { return encodingName; }
+    bool encodingWasDetected() const { return encodingAutoDetected; }
+    bool setEncoding(const QByteArray &name, BomType bom, QString *error = nullptr);
 
     bool isTemporary() const { return temporary; }
     void setTemporary(bool temp);
@@ -158,6 +161,7 @@ signals:
     void saved();
     void closed();
     void renamed();
+    void encodingChanged();
 
     void lexerChanged();
     void reloaded();
@@ -174,6 +178,8 @@ private:
     BufferType bufferType = BufferType::New;
     BomType bomType = BomType::None;
     QByteArray encodingName = QByteArrayLiteral("UTF-8");
+    bool encodingAutoDetected = false;
+    bool encodingDirty = false;
     QFileInfo fileInfo;
     QDateTime modifiedTime;
     RangeAllocator indicatorResources;

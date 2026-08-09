@@ -112,29 +112,45 @@ static QByteArray sniffEncoding(const QByteArray &data)
     return detected;
 }
 
-static QFileDevice::FileError writeToDisk(const QByteArray &data, const QString &path, ScintillaNext::BomType &bom, QByteArray &encodingName)
+static QFileDevice::FileError writeToDisk(const QByteArray &data,
+                                          const QString &path,
+                                          ScintillaNext::BomType &bom,
+                                          QByteArray &encodingName,
+                                          QString *errorMessage = nullptr)
 {
     qInfo(Q_FUNC_INFO);
 
+    const auto fail = [errorMessage](QFileDevice::FileError error, const QString &message) {
+        if (errorMessage) {
+            *errorMessage = message;
+        }
+        return error;
+    };
+
     QTextCodec *codec = QTextCodec::codecForName(encodingName);
     if (codec == nullptr) {
-        codec = QTextCodec::codecForName("UTF-8");
-        encodingName = codec->name();
+        return fail(QFileDevice::WriteError,
+                    QStringLiteral("The selected encoding is not available: %1.").arg(QString::fromLatin1(encodingName)));
     }
 
     const QString unicodeData = QString::fromUtf8(data);
     if (!codec->canEncode(unicodeData)) {
-        qWarning("Encoding %s cannot represent the edited document; saving as UTF-8", encodingName.constData());
-        codec = QTextCodec::codecForName("UTF-8");
-        encodingName = codec->name();
-        bom = ScintillaNext::BomType::None;
+        return fail(QFileDevice::WriteError,
+                    QStringLiteral("The selected encoding cannot represent the edited document: %1.")
+                        .arg(QString::fromLatin1(encodingName)));
     }
 
     const std::unique_ptr<QTextEncoder> encoder(codec->makeEncoder(QTextCodec::ConversionFlags{}));
+    if (!encoder) {
+        return fail(QFileDevice::WriteError,
+                    QStringLiteral("The selected encoding could not create an encoder: %1.")
+                        .arg(QString::fromLatin1(encodingName)));
+    }
     const QByteArray encodedData = encoder->fromUnicode(unicodeData);
     if (encoder->hasFailure()) {
-        qWarning("Failed to encode document as %s", encodingName.constData());
-        return QFileDevice::WriteError;
+        return fail(QFileDevice::WriteError,
+                    QStringLiteral("The selected encoding failed while converting the document: %1.")
+                        .arg(QString::fromLatin1(encodingName)));
     }
 
     const QByteArray bomBytes = bomData(bom);
@@ -160,6 +176,9 @@ static QFileDevice::FileError writeToDisk(const QByteArray &data, const QString 
 
     if (!result.succeeded()) {
         qWarning("writeToDisk() failed for %s: %s", qPrintable(path), qPrintable(result.errorString));
+        if (errorMessage && errorMessage->isEmpty()) {
+            *errorMessage = result.errorString;
+        }
         return result.error;
     }
 
@@ -411,6 +430,7 @@ bool ScintillaNext::canSaveToDisk() const
     // - A modified file
     // - A missing file since as soon as it is saved it is no longer missing.
     return externalChangePending ||
+           encodingDirty ||
            temporary ||
            (bufferType == ScintillaNext::New && modify()) ||
            (bufferType == ScintillaNext::File && modify()) ||
@@ -422,6 +442,65 @@ void ScintillaNext::setName(const QString &name)
     this->name = name;
 
     emit renamed();
+}
+
+bool ScintillaNext::setEncoding(const QByteArray &name, BomType bom, QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+
+    QTextCodec *codec = QTextCodec::codecForName(name);
+    if (codec == nullptr) {
+        if (error) {
+            *error = tr("The encoding is not available: %1.").arg(QString::fromLatin1(name));
+        }
+        return false;
+    }
+
+    const QByteArray normalizedName = codec->name();
+    const auto expectedBomEncoding = [](BomType bomType) -> QByteArray {
+        switch (bomType) {
+        case BomType::Utf8: return QByteArrayLiteral("UTF-8");
+        case BomType::Utf16LE: return QByteArrayLiteral("UTF-16LE");
+        case BomType::Utf16BE: return QByteArrayLiteral("UTF-16BE");
+        case BomType::Utf32LE: return QByteArrayLiteral("UTF-32LE");
+        case BomType::Utf32BE: return QByteArrayLiteral("UTF-32BE");
+        case BomType::None: return {};
+        }
+        return {};
+    };
+
+    const QByteArray bomEncoding = expectedBomEncoding(bom);
+    if (!bomEncoding.isEmpty() && normalizedName.compare(bomEncoding, Qt::CaseInsensitive) != 0) {
+        if (error) {
+            *error = tr("The selected BOM is incompatible with %1.").arg(QString::fromLatin1(normalizedName));
+        }
+        return false;
+    }
+
+    const QString unicodeData = QString::fromUtf8(getText(textLength()));
+    if (!codec->canEncode(unicodeData)) {
+        if (error) {
+            *error = tr("The selected encoding cannot represent the current document: %1.")
+                         .arg(QString::fromLatin1(normalizedName));
+        }
+        return false;
+    }
+
+    const bool encodingSelectionChanged = encodingName != normalizedName || bomType != bom;
+    if (!encodingSelectionChanged && !encodingAutoDetected) {
+        return true;
+    }
+
+    encodingName = normalizedName;
+    bomType = bom;
+    if (encodingSelectionChanged) {
+        encodingDirty = true;
+    }
+    encodingAutoDetected = false;
+    emit encodingChanged();
+    return true;
 }
 
 bool ScintillaNext::isFile() const
@@ -501,11 +580,12 @@ QFileDevice::FileError ScintillaNext::save(bool allowExternalChange)
 
     const QByteArray data = QByteArray::fromRawData((char*)characterPointer(), textLength());
     const QString path = fileInfo.filePath();
-    QFileDevice::FileError writeSuccessful = writeToDisk(data, path, bomType, encodingName);
+    QFileDevice::FileError writeSuccessful = writeToDisk(data, path, bomType, encodingName, &lastFileErrorMessage);
 
     if (writeSuccessful == QFileDevice::NoError) {
         updateDiskSnapshot();
         externalChangePending = false;
+        encodingDirty = false;
         setSavePoint();
 
         // If this was a temporary file, make sure it is not any more
@@ -515,7 +595,9 @@ QFileDevice::FileError ScintillaNext::save(bool allowExternalChange)
     }
 
     if (writeSuccessful != QFileDevice::NoError) {
-        lastFileErrorMessage = tr("Unable to save %1.").arg(path);
+        if (lastFileErrorMessage.isEmpty()) {
+            lastFileErrorMessage = tr("Unable to save %1.").arg(path);
+        }
     }
 
     return writeSuccessful;
@@ -556,6 +638,7 @@ bool ScintillaNext::reload(QString *error)
     updateDiskSnapshot();
     setSavePoint();
     externalChangePending = false;
+    encodingDirty = false;
 
     // If this was a temporary file, make sure it is not any more
     if (isTemporary())
@@ -601,12 +684,13 @@ QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
     emit aboutToSave();
 
     const QByteArray data = QByteArray::fromRawData((char*)characterPointer(), textLength());
-    QFileDevice::FileError saveSuccessful = writeToDisk(data, newFilePath, bomType, encodingName);
+    QFileDevice::FileError saveSuccessful = writeToDisk(data, newFilePath, bomType, encodingName, &lastFileErrorMessage);
 
     if (saveSuccessful == QFileDevice::NoError) {
         setFileInfo(newFilePath);
         setSavePoint();
         externalChangePending = false;
+        encodingDirty = false;
 
         // If this was a temporary file, make sure it is not any more
         setTemporary(false);
@@ -618,7 +702,9 @@ QFileDevice::FileError ScintillaNext::saveAs(const QString &newFilePath)
         }
     }
     else {
-        lastFileErrorMessage = tr("Unable to save %1.").arg(newFilePath);
+        if (lastFileErrorMessage.isEmpty()) {
+            lastFileErrorMessage = tr("Unable to save %1.").arg(newFilePath);
+        }
     }
 
     return saveSuccessful;
@@ -628,9 +714,11 @@ QFileDevice::FileError ScintillaNext::saveCopyAs(const QString &filePath)
 {
     lastFileErrorMessage.clear();
     const QByteArray data = QByteArray::fromRawData((char*)characterPointer(), textLength());
-    const QFileDevice::FileError error = writeToDisk(data, filePath, bomType, encodingName);
+    const QFileDevice::FileError error = writeToDisk(data, filePath, bomType, encodingName, &lastFileErrorMessage);
     if (error != QFileDevice::NoError) {
-        lastFileErrorMessage = tr("Unable to save %1.").arg(filePath);
+        if (lastFileErrorMessage.isEmpty()) {
+            lastFileErrorMessage = tr("Unable to save %1.").arg(filePath);
+        }
     }
     return error;
 }
@@ -660,6 +748,7 @@ bool ScintillaNext::rename(const QString &newFilePath)
         setFileInfo(newFilePath);
         setSavePoint();
         externalChangePending = false;
+        encodingDirty = false;
 
         // If this was a temporary file, make sure it is not any more
         setTemporary(false);
@@ -934,6 +1023,7 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
     const QByteArray previousData = getText(textLength());
     const BomType previousBom = bomType;
     const QByteArray previousEncoding = encodingName;
+    const bool previousEncodingAutoDetected = encodingAutoDetected;
     const bool previousReadOnly = readOnly();
 
     allocate(decodedData.size());
@@ -963,12 +1053,15 @@ bool ScintillaNext::readFromDisk(QFile &file, QString *error)
         setUndoCollection(true);
         bomType = previousBom;
         encodingName = previousEncoding;
+        encodingAutoDetected = previousEncodingAutoDetected;
         setReadOnly(previousReadOnly);
         return fail(tr("The editor could not apply the loaded document."));
     }
 
     bomType = effectiveBom;
     encodingName = loadedEncoding;
+    encodingAutoDetected = loadedBom == BomType::None;
+    encodingDirty = false;
     diskFingerprint = QCryptographicHash::hash(encodedData, QCryptographicHash::Sha256);
     setReadOnly(!writable);
     if (!writable) {

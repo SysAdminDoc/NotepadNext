@@ -122,6 +122,7 @@ public slots:
 
     void updateFileStatusBasedUi(ScintillaNext *editor);
     void updateEOLBasedUi(ScintillaNext *editor);
+    void updateEncodingBasedUi(ScintillaNext *editor);
     void updateDocumentBasedUi(Scintilla::Update updated);
     void updateSelectionBasedUi(ScintillaNext *editor);
     void updateContentBasedUi(ScintillaNext *editor);
@@ -211,6 +212,8 @@ private:
     void showEditorZoomLevelIndicator();
     void setupThemeMenu();
     void setupIconThemeMenu();
+    void setupEncodingMenu();
+    QAction *addEncodingAction(const QString &label, const QByteArray &codecName, ScintillaNext::BomType bom);
     void applyIconTheme();
 #ifdef Q_OS_WIN
     void setupWindowsTitleBar();
@@ -226,6 +229,8 @@ private:
     ISearchResultsHandler *determineSearchResultsHandler();
 
     QActionGroup *languageActionGroup;
+    QActionGroup *encodingActionGroup = Q_NULLPTR;
+    QAction *encodingDetectionNoticeAction = Q_NULLPTR;
     QActionGroup *themeActionGroup = Q_NULLPTR;
     QActionGroup *iconThemeActionGroup = Q_NULLPTR;
     QHash<QAction *, QIcon> originalActionIcons;

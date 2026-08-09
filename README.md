@@ -99,6 +99,8 @@ On Windows, Notepad++-compatible DLL plugins are not loaded automatically. Revie
 
 External file changes are handled without discarding the in-memory buffer: reload failures leave the document untouched, deleted/restored files are surfaced, and saves verify the on-disk content before writing. When a conflict is detected, use Compare, Reload, Keep Mine, Save As, or the explicit Overwrite action.
 
+The **Encoding** menu shows the detected codec and BOM state, marks no-BOM detections as automatic and potentially ambiguous, and lets you explicitly choose UTF-8/16/32 or an available legacy codec. BOM selection is preserved or changed intentionally; saves stop with an explanation when the selected codec cannot represent the edited text.
+
 **View > Snippet Manager** stores reusable templates in the application profile. Use **Edit > Insert Snippet...** for selection-based insertion, or type a snippet trigger in the editor and press Tab. Bodies support `${1:default}` and `${2}` placeholders; Tab and Shift+Tab navigate them, and `${0}` marks the final caret position.
 
 Built-in docks and dialogs expose descriptive screen-reader names and keyboard guidance. The command palette accepts Up/Down navigation, file and workspace lists activate with Enter, and custom dock controls have an explicit Tab order.

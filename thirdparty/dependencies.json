@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "project": "NotepadNext",
+  "advisory_policy": {
+    "provider": "OSV.dev",
+    "commit_query": "https://api.osv.dev/v1/query",
+    "refresh_command": "python scripts/dependency_inventory.py --refresh-advisories --security-gate",
+    "exceptions": [
+      {
+        "dependency": "Qt 6",
+        "owner": "SysAdminDoc",
+        "rationale": "Qt is supplied by the build host or platform package manager; OSV commit queries do not identify a system installation. The resolved Qt version and license choice remain explicit in this inventory."
+      },
+      {
+        "dependency": "CPM.cmake",
+        "owner": "SysAdminDoc",
+        "rationale": "CPM.cmake is a vendored build-time helper rather than shipped application code; its source hash and version are checked locally."
+      },
+      {
+        "dependency": "Lua 5.3",
+        "owner": "SysAdminDoc",
+        "rationale": "Lua is a vendored source snapshot without upstream VCS metadata in this checkout; its version, license notice, and source-tree hash are emitted in the SBOM."
+      },
+      {
+        "dependency": "Scintilla",
+        "owner": "SysAdminDoc",
+        "rationale": "Scintilla is a vendored source snapshot without upstream VCS metadata in this checkout; its version, license notice, and source-tree hash are emitted in the SBOM."
+      },
+      {
+        "dependency": "Lexilla",
+        "owner": "SysAdminDoc",
+        "rationale": "Lexilla is a vendored source snapshot without upstream VCS metadata in this checkout; its version, license notice, and source-tree hash are emitted in the SBOM."
+      },
+      {
+        "dependency": "uchardet",
+        "owner": "SysAdminDoc",
+        "rationale": "uchardet is a vendored source snapshot without upstream VCS metadata in this checkout; its version, license notice, and source-tree hash are emitted in the SBOM."
+      }
+    ]
+  },
+  "feature_matrix": {
+    "tree-sitter": ["on", "off"],
+    "webengine": ["on", "off"]
+  },
+  "dependencies": [
+    {
+      "name": "Qt 6",
+      "kind": "system",
+      "upstream_url": "https://www.qt.io/",
+      "revision": "6.7.3",
+      "version": "6.7.3",
+      "license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "license_file": "external system Qt installation",
+      "required": true,
+      "features": ["webengine"]
+    },
+    {
+      "name": "CPM.cmake",
+      "kind": "build-tool",
+      "upstream_url": "https://github.com/cpm-cmake/CPM.cmake",
+      "revision": "vendored:0.42.1",
+      "version": "0.42.1",
+      "license": "MIT",
+      "license_file": "cmake/CPM.cmake",
+      "source_path": "cmake/CPM.cmake",
+      "required": true
+    },
+    {
+      "name": "Qt Advanced Docking System",
+      "cmake_name": "ads",
+      "kind": "source",
+      "upstream_url": "https://github.com/githubuser0xFFFF/Qt-Advanced-Docking-System",
+      "revision": "34b68d6eab1556cf851d24e033909332771f3dfe",
+      "resolved_commit": "34b68d6eab1556cf851d24e033909332771f3dfe",
+      "version": "4.5.0",
+      "license": "LGPL-2.1-only",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/ads",
+      "required": true
+    },
+    {
+      "name": "QSimpleUpdater",
+      "cmake_name": "QSimpleUpdater",
+      "kind": "source",
+      "upstream_url": "https://github.com/alex-spataru/QSimpleUpdater",
+      "revision": "8e7017f7fbdc2b4b1a26ed1eef9ebcba6a50639c",
+      "resolved_commit": "8e7017f7fbdc2b4b1a26ed1eef9ebcba6a50639c",
+      "version": "2.0-84-g8e7017f",
+      "license": "MIT",
+      "license_file": "LICENSE.md",
+      "source_path": ".cpm-cache/qsimpleupdater",
+      "required": true
+    },
+    {
+      "name": "SingleApplication",
+      "cmake_name": "SingleApplication",
+      "kind": "source",
+      "upstream_url": "https://github.com/itay-grudev/SingleApplication",
+      "revision": "494772e98cef0aa88124f154feb575cc60b08b38",
+      "resolved_commit": "494772e98cef0aa88124f154feb575cc60b08b38",
+      "version": "3.5.2",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/singleapplication",
+      "required": true
+    },
+    {
+      "name": "editorconfig-core-qt",
+      "cmake_name": "editorconfig_core_qt",
+      "kind": "source",
+      "upstream_url": "https://github.com/editorconfig/editorconfig-core-qt",
+      "revision": "ab62f0554abf2bbe4d45427b36a8b2f81ca7b4ab",
+      "resolved_commit": "ab62f0554abf2bbe4d45427b36a8b2f81ca7b4ab",
+      "version": "0.1",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/editorconfig_core_qt",
+      "required": true
+    },
+    {
+      "name": "yaml-cpp",
+      "cmake_name": "yaml-cpp",
+      "kind": "source",
+      "upstream_url": "https://github.com/jbeder/yaml-cpp",
+      "revision": "56e3bb550c91fd7005566f19c079cb7a503223cf",
+      "resolved_commit": "56e3bb550c91fd7005566f19c079cb7a503223cf",
+      "version": "0.9.0",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/yaml-cpp",
+      "required": true
+    },
+    {
+      "name": "toml++",
+      "cmake_name": "tomlplusplus",
+      "kind": "source",
+      "upstream_url": "https://github.com/marzer/tomlplusplus",
+      "revision": "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",
+      "resolved_commit": "30172438cee64926dc41fdd9c11fb3ba5b2ba9de",
+      "version": "3.4.0",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/tomlplusplus",
+      "required": true
+    },
+    {
+      "name": "QuickJS-NG",
+      "cmake_name": "quickjs",
+      "kind": "source",
+      "upstream_url": "https://github.com/quickjs-ng/quickjs",
+      "revision": "fd0a0210b7be00957751871e7e01b8291268fc29",
+      "resolved_commit": "fd0a0210b7be00957751871e7e01b8291268fc29",
+      "version": "0.15.1",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/quickjs",
+      "required": true
+    },
+    {
+      "name": "libgit2",
+      "cmake_name": "libgit2",
+      "kind": "source",
+      "upstream_url": "https://github.com/libgit2/libgit2",
+      "revision": "26055f5af74ab1cf636d272e8a34315496d3f06f",
+      "resolved_commit": "26055f5af74ab1cf636d272e8a34315496d3f06f",
+      "version": "1.9.6",
+      "license": "GPL-2.0-or-later WITH Libgit2-exception",
+      "license_file": "COPYING",
+      "source_path": ".cpm-cache/libgit2",
+      "required": true
+    },
+    {
+      "name": "libssh2",
+      "cmake_name": "libssh2",
+      "kind": "source",
+      "upstream_url": "https://github.com/libssh2/libssh2",
+      "revision": "19aa4338f744c1cac4a177aba624593f8de36c2a",
+      "resolved_commit": "19aa4338f744c1cac4a177aba624593f8de36c2a",
+      "version": "1.11.1+post-release-security-fixes",
+      "license": "BSD-3-Clause",
+      "license_file": "COPYING",
+      "source_path": ".cpm-cache/libssh2",
+      "required": true
+    },
+    {
+      "name": "Lua 5.3",
+      "kind": "source",
+      "upstream_url": "https://www.lua.org/",
+      "revision": "vendored:lua-5.3.4",
+      "version": "5.3.4",
+      "license": "MIT",
+      "license_file": "src/lua.h",
+      "source_path": "thirdparty/lua",
+      "required": true
+    },
+    {
+      "name": "Scintilla",
+      "kind": "source",
+      "upstream_url": "https://www.scintilla.org/",
+      "revision": "vendored:version.txt=561",
+      "version": "5.6.1",
+      "license": "LicenseRef-Scintilla",
+      "license_file": "License.txt",
+      "source_path": "thirdparty/scintilla",
+      "required": true
+    },
+    {
+      "name": "Lexilla",
+      "kind": "source",
+      "upstream_url": "https://www.scintilla.org/",
+      "revision": "vendored:version.txt=548",
+      "version": "5.4.8",
+      "license": "LicenseRef-Scintilla",
+      "license_file": "License.txt",
+      "source_path": "thirdparty/lexilla",
+      "required": true
+    },
+    {
+      "name": "uchardet",
+      "kind": "source",
+      "upstream_url": "https://gitlab.freedesktop.org/uchardet/uchardet",
+      "revision": "vendored:uchardet-0.0.8",
+      "version": "0.0.8",
+      "license": "MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later",
+      "license_file": "COPYING",
+      "source_path": "thirdparty/uchardet",
+      "required": true
+    },
+    {
+      "name": "tree-sitter",
+      "cmake_name": "tree_sitter",
+      "kind": "optional-source",
+      "feature": "tree-sitter",
+      "upstream_url": "https://github.com/tree-sitter/tree-sitter",
+      "revision": "7f534862c3ec939c3a6ee147f7600ef5c1bf900f",
+      "resolved_commit": "7f534862c3ec939c3a6ee147f7600ef5c1bf900f",
+      "version": "0.26.9",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/tree_sitter",
+      "required": false
+    },
+    {
+      "name": "tree-sitter-json",
+      "cmake_name": "tree_sitter_json",
+      "kind": "optional-source",
+      "feature": "tree-sitter",
+      "upstream_url": "https://github.com/tree-sitter/tree-sitter-json",
+      "revision": "ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24",
+      "resolved_commit": "ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24",
+      "version": "0.24.8",
+      "license": "MIT",
+      "license_file": "LICENSE",
+      "source_path": ".cpm-cache/tree_sitter_json",
+      "required": false
+    }
+  ]
+}

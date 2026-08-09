@@ -1,3 +1,27 @@
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+if(NOTEPADNEXT_ENABLE_TREE_SITTER)
+    set(NOTEPADNEXT_TREE_SITTER_STATE on)
+else()
+    set(NOTEPADNEXT_TREE_SITTER_STATE off)
+endif()
+
+if(NOTEPADNEXT_HAS_WEBENGINE)
+    set(NOTEPADNEXT_WEBENGINE_STATE on)
+else()
+    set(NOTEPADNEXT_WEBENGINE_STATE off)
+endif()
+
+add_test(NAME NotepadNextDependencyInventoryTests
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/scripts/dependency_inventory.py
+        --check
+        --tree-sitter ${NOTEPADNEXT_TREE_SITTER_STATE}
+        --webengine ${NOTEPADNEXT_WEBENGINE_STATE}
+        --output ${CMAKE_BINARY_DIR}/dependency-inventory.json
+        --sbom ${CMAKE_BINARY_DIR}/dependency-sbom.json
+)
+
 qt_add_executable(NotepadNextSessionJournalTests
     SessionJournalTests.cpp
     ${CMAKE_SOURCE_DIR}/src/SessionJournal.cpp

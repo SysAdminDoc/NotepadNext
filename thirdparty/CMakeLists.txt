@@ -33,7 +33,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME yaml-cpp
     GITHUB_REPOSITORY jbeder/yaml-cpp
-    GIT_TAG yaml-cpp-0.9.0
+    GIT_TAG 56e3bb550c91fd7005566f19c079cb7a503223cf
     OPTIONS
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
@@ -43,7 +43,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME tomlplusplus
     GITHUB_REPOSITORY marzer/tomlplusplus
-    GIT_TAG v3.4.0
+    GIT_TAG 30172438cee64926dc41fdd9c11fb3ba5b2ba9de
     DOWNLOAD_ONLY YES
 )
 
@@ -84,7 +84,7 @@ endif()
 CPMAddPackage(
     NAME libssh2
     GITHUB_REPOSITORY libssh2/libssh2
-    GIT_TAG 3a735286108ad19e3b49c64ebcb66342f1f21df7
+    GIT_TAG 19aa4338f744c1cac4a177aba624593f8de36c2a
     OPTIONS
         "BUILD_STATIC_LIBS ON"
         "BUILD_SHARED_LIBS OFF"
@@ -104,7 +104,7 @@ if(NOTEPADNEXT_ENABLE_TREE_SITTER)
     CPMAddPackage(
         NAME tree_sitter
         GITHUB_REPOSITORY tree-sitter/tree-sitter
-        GIT_TAG v0.26.9
+        GIT_TAG 7f534862c3ec939c3a6ee147f7600ef5c1bf900f
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
             "TREE_SITTER_FEATURE_WASM OFF"
@@ -114,7 +114,7 @@ if(NOTEPADNEXT_ENABLE_TREE_SITTER)
     CPMAddPackage(
         NAME tree_sitter_json
         GITHUB_REPOSITORY tree-sitter/tree-sitter-json
-        GIT_TAG v0.24.8
+        GIT_TAG ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24
         DOWNLOAD_ONLY YES
     )
 

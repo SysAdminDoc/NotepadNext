@@ -4,6 +4,7 @@ All notable changes to NotepadNext will be documented in this file.
 
 ## [Unreleased]
 
+- Security: Added a dependency provenance/SBOM gate for immutable revisions, license metadata, source hashes, feature matrices, update reporting, and OSV advisory checks; libssh2 now tracks the upstream post-1.11.1 security-fix commit.
 - Security: Added workspace-scoped capability trust for JavaScript, Lua, script-file access, document automation, terminal processes, and optional workspace startup Lua, with session/persistent grants, independent revocation, and redacted audit records.
 - Security: Windows Notepad++ DLL plugins now require an explicit, persisted SHA-256 trust decision; profile plugins are opt-in and `--safe-mode` disables native plugins for the session.
 - Reliability: External file changes now preserve the in-memory document on reload failure, distinguish deleted/restored/conflicted states, and block ordinary saves until the change is resolved explicitly.

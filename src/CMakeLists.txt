@@ -5,6 +5,7 @@ qt_add_executable(NotepadNext
 	ApplicationSettings.h
 	AtomicFileWriter.h
 	ByteArrayUtils.h
+	CapabilityTrust.h
 	ColorPickerDelegate.h
 	CommandPaletteDialog.h
 	CommandPaletteFilter.h
@@ -89,6 +90,7 @@ qt_add_executable(NotepadNext
 	scripts.qrc
 	ApplicationSettings.cpp
 	AtomicFileWriter.cpp
+	CapabilityTrust.cpp
 	ColorPickerDelegate.cpp
 	CommandPaletteDialog.cpp
 	CommandPaletteFilter.cpp

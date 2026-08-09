@@ -11,6 +11,7 @@ All notable changes to NotepadNext will be documented in this file.
 - Reliability: Document, export, and session writes now share checked atomic replacement, preserve previous output on failure, and surface actionable write errors.
 - Added: The Encoding menu now exposes UTF-8/16/32 BOM choices and available legacy codecs, marks auto-detected no-BOM files, keeps the status bar synchronized, and refuses lossy saves with an actionable error.
 - Added: Text files from 50 MiB through the 128 MiB safety limit now use read-only large-file mode with visible-range decorations and explicit status messages; larger files are rejected with guidance to use the Hex Editor or an external tool.
+- Reliability: LSP servers are now shared by workspace root and compatible configuration, track multiple documents, version-gate diagnostics and language replies, cancel superseded requests, time out stalled requests, and expose lifecycle status in the main window.
 
 ## [v0.15] - 2026-08-03
 

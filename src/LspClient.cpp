@@ -145,6 +145,8 @@ QList<QJsonObject> LspMessageParser::consume(const QByteArray &data)
 LspClient::LspClient(QString program, QStringList arguments, QObject *parent)
     : QObject(parent), program(std::move(program)), arguments(std::move(arguments))
 {
+    requestTimer.setInterval(250);
+    connect(&requestTimer, &QTimer::timeout, this, &LspClient::expireRequests);
 }
 
 LspClient::~LspClient()
@@ -201,7 +203,17 @@ bool LspClient::configurationForLanguage(const QString &language,
 
 bool LspClient::start(const QString &newRootPath)
 {
-    rootPath = newRootPath;
+    const QString normalizedRootPath = newRootPath.isEmpty()
+        ? QString()
+        : QFileInfo(newRootPath).absoluteFilePath();
+    const bool rootChanged = !rootPath.isEmpty() && rootPath != normalizedRootPath;
+    if (rootChanged) {
+        stop();
+        documents.clear();
+        pendingRequests.clear();
+        requestTimer.stop();
+    }
+    rootPath = normalizedRootPath;
     if (program.isEmpty()) {
         emit serverError(QStringLiteral("LSP server command is empty"));
         return false;
@@ -225,15 +237,24 @@ bool LspClient::start(const QString &newRootPath)
                 [this](int exitCode, QProcess::ExitStatus) {
             initializationComplete = false;
             pendingRequests.clear();
+            requestTimer.stop();
+            const QString message = stopping
+                ? QStringLiteral("LSP server stopped")
+                : QStringLiteral("LSP server exited unexpectedly with code %1").arg(exitCode);
+            emit statusChanged(message);
             emit stopped(exitCode);
+            stopping = false;
         });
     }
 
     if (process->state() == QProcess::NotRunning) {
+        stopping = false;
         parser.reset();
         initializationComplete = false;
         pendingRequests.clear();
+        requestTimer.stop();
         process->start(program, arguments);
+        emit statusChanged(QStringLiteral("Starting LSP server %1").arg(program));
     }
 
     return true;
@@ -245,16 +266,23 @@ void LspClient::stop()
         return;
     }
 
-    if (initializationComplete && hasDocument) {
-        sendNotification(QStringLiteral("textDocument/didClose"), QJsonObject{
-            {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), document.uri}}},
-        });
+    stopping = true;
+    const QList<int> requestIds = pendingRequests.keys();
+    for (const int id : requestIds) {
+        cancelRequest(id);
+    }
+    if (initializationComplete) {
+        const QStringList uris = documents.keys();
+        for (const QString &uri : uris) {
+            sendNotification(QStringLiteral("textDocument/didClose"), QJsonObject{
+                {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), uri}}},
+            });
+        }
     }
 
     initializationComplete = false;
     pendingRequests.clear();
-    hasDocument = false;
-    hasPendingDocument = false;
+    requestTimer.stop();
 
     if (process->state() != QProcess::NotRunning) {
         process->terminate();
@@ -276,45 +304,45 @@ void LspClient::openDocument(const QString &uri,
                              int version,
                              const QString &newRootPath)
 {
-    rootPath = newRootPath;
-    pendingDocument = {uri, languageId, text, version};
-    hasPendingDocument = true;
-
-    if (!isRunning() && !start(rootPath)) {
+    if (uri.isEmpty()) {
         return;
     }
 
+    if ((!isRunning() || rootPath != QFileInfo(newRootPath).absoluteFilePath()) && !start(newRootPath)) {
+        return;
+    }
+
+    const bool wasOpen = documents.contains(uri);
+    documents.insert(uri, {uri, languageId, text, version});
+
     if (initializationComplete) {
-        if (hasDocument && document.uri == uri) {
-            document = pendingDocument;
-            hasPendingDocument = false;
+        const DocumentState &document = documents.constFind(uri).value();
+        if (wasOpen) {
+            cancelRequestsForDocument(uri);
             sendDidChange(document);
-            return;
         }
-        if (hasDocument) {
-            closeDocument(document.uri);
+        else {
+            sendDidOpen(document);
         }
-        document = pendingDocument;
-        hasDocument = true;
-        hasPendingDocument = false;
-        sendDidOpen(document);
     }
 }
 
 void LspClient::changeDocument(const QString &uri, const QByteArray &text, int version)
 {
-    if (!initializationComplete || !hasDocument || document.uri != uri) {
+    auto it = documents.find(uri);
+    if (!initializationComplete || it == documents.end()) {
         return;
     }
 
-    document.text = text;
-    document.version = version;
-    sendDidChange(document);
+    cancelRequestsForDocument(uri);
+    it->text = text;
+    it->version = version;
+    sendDidChange(it.value());
 }
 
 void LspClient::saveDocument(const QString &uri)
 {
-    if (!initializationComplete || !hasDocument || document.uri != uri) {
+    if (!initializationComplete || !documents.contains(uri)) {
         return;
     }
 
@@ -325,47 +353,64 @@ void LspClient::saveDocument(const QString &uri)
 
 void LspClient::closeDocument(const QString &uri)
 {
-    if (!initializationComplete || !hasDocument || document.uri != uri) {
+    if (!documents.contains(uri)) {
         return;
     }
 
-    sendNotification(QStringLiteral("textDocument/didClose"), QJsonObject{
-        {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), uri}}},
-    });
-    hasDocument = false;
+    cancelRequestsForDocument(uri);
+
+    if (initializationComplete) {
+        sendNotification(QStringLiteral("textDocument/didClose"), QJsonObject{
+            {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), uri}}},
+        });
+    }
+    documents.remove(uri);
 }
 
-void LspClient::requestHover(const QString &uri, const LspPosition &position)
+void LspClient::requestHover(const QString &uri, const LspPosition &position, int documentVersion)
 {
-    if (!initializationComplete || !hasDocument || document.uri != uri) {
+    const auto it = documents.constFind(uri);
+    if (!initializationComplete || it == documents.constEnd()) {
         return;
     }
+
+    cancelRequestsForDocument(uri, RequestType::Hover);
 
     const QJsonObject params{
         {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), uri}}},
         {QStringLiteral("position"), positionObject(position)},
     };
-    sendRequest(QStringLiteral("textDocument/hover"), params, RequestType::Hover, uri, position);
+    const int version = documentVersion >= 0 ? documentVersion : it->version;
+    sendRequest(QStringLiteral("textDocument/hover"), params, RequestType::Hover, uri, position, version);
 }
 
-void LspClient::requestDefinition(const QString &uri, const LspPosition &position)
+void LspClient::requestDefinition(const QString &uri, const LspPosition &position, int documentVersion)
 {
-    if (!initializationComplete || !hasDocument || document.uri != uri) {
+    const auto it = documents.constFind(uri);
+    if (!initializationComplete || it == documents.constEnd()) {
         return;
     }
+
+    cancelRequestsForDocument(uri, RequestType::Definition);
 
     const QJsonObject params{
         {QStringLiteral("textDocument"), QJsonObject{{QStringLiteral("uri"), uri}}},
         {QStringLiteral("position"), positionObject(position)},
     };
-    sendRequest(QStringLiteral("textDocument/definition"), params, RequestType::Definition, uri, position);
+    const int version = documentVersion >= 0 ? documentVersion : it->version;
+    sendRequest(QStringLiteral("textDocument/definition"), params, RequestType::Definition, uri, position, version);
 }
 
 int LspClient::sendRequest(const QString &method, const QJsonObject &params, RequestType type,
-                           const QString &uri, const LspPosition &position)
+                           const QString &uri, const LspPosition &position, int documentVersion)
 {
+    if (!process || process->state() == QProcess::NotRunning) {
+        return -1;
+    }
+
     const int id = nextRequestId++;
-    pendingRequests.insert(id, {type, uri, position});
+    pendingRequests.insert(id, {type, method, uri, position, documentVersion,
+                                QDateTime::currentMSecsSinceEpoch() + RequestTimeoutMs});
 
     const QJsonObject request{
         {QStringLiteral("jsonrpc"), QStringLiteral("2.0")},
@@ -373,8 +418,9 @@ int LspClient::sendRequest(const QString &method, const QJsonObject &params, Req
         {QStringLiteral("method"), method},
         {QStringLiteral("params"), params},
     };
-    if (process && process->state() != QProcess::NotRunning) {
-        process->write(LspMessageParser::encode(request));
+    process->write(LspMessageParser::encode(request));
+    if (!requestTimer.isActive()) {
+        requestTimer.start();
     }
     return id;
 }
@@ -519,6 +565,9 @@ void LspClient::handleNotification(const QString &method, const QJsonObject &par
 {
     if (method == QStringLiteral("textDocument/publishDiagnostics")) {
         const QString uri = params.value(QStringLiteral("uri")).toString();
+        const int documentVersion = params.contains(QStringLiteral("version"))
+            ? params.value(QStringLiteral("version")).toInt(-1)
+            : -1;
         QVector<LspDiagnostic> diagnostics;
         const QJsonArray values = params.value(QStringLiteral("diagnostics")).toArray();
         diagnostics.reserve(values.size());
@@ -532,7 +581,7 @@ void LspClient::handleNotification(const QString &method, const QJsonObject &par
                 diagnostics.append(diagnostic);
             }
         }
-        emit diagnosticsReady(uri, diagnostics);
+        emit diagnosticsReady(uri, documentVersion, diagnostics);
     }
     else if (method == QStringLiteral("window/showMessage") || method == QStringLiteral("window/logMessage")) {
         const QString messageText = params.value(QStringLiteral("message")).toString();
@@ -550,6 +599,20 @@ void LspClient::handleResponse(const QJsonObject &message)
     }
 
     const PendingRequest request = pendingRequests.take(id);
+    if (pendingRequests.isEmpty()) {
+        requestTimer.stop();
+    }
+
+    if (request.type != RequestType::Initialize) {
+        const auto documentIt = documents.constFind(request.uri);
+        if (documentIt == documents.constEnd()) {
+            return;
+        }
+        if (request.documentVersion >= 0 && documentIt->version != request.documentVersion) {
+            return;
+        }
+    }
+
     if (message.contains(QStringLiteral("error"))) {
         const QJsonObject error = message.value(QStringLiteral("error")).toObject();
         emit serverError(QStringLiteral("LSP request failed: %1").arg(error.value(QStringLiteral("message")).toString()));
@@ -559,12 +622,11 @@ void LspClient::handleResponse(const QJsonObject &message)
     if (request.type == RequestType::Initialize) {
         initializationComplete = true;
         sendNotification(QStringLiteral("initialized"), QJsonObject());
+        emit statusChanged(QStringLiteral("LSP server initialized for %1").arg(rootPath));
         emit LspClient::initialized();
 
-        if (hasPendingDocument) {
-            document = pendingDocument;
-            hasDocument = true;
-            hasPendingDocument = false;
+        const QList<DocumentState> pendingDocuments = documents.values();
+        for (const DocumentState &document : pendingDocuments) {
             sendDidOpen(document);
         }
         return;
@@ -576,7 +638,11 @@ void LspClient::handleResponse(const QJsonObject &message)
         if (!result.isEmpty()) {
             text = hoverText(result.value(QStringLiteral("contents")));
         }
-        emit hoverReady(request.uri, request.position, text);
+        const auto documentIt = documents.constFind(request.uri);
+        const int documentVersion = request.documentVersion >= 0
+            ? request.documentVersion
+            : (documentIt == documents.constEnd() ? -1 : documentIt->version);
+        emit hoverReady(request.uri, documentVersion, request.position, text);
         return;
     }
 
@@ -596,7 +662,72 @@ void LspClient::handleResponse(const QJsonObject &message)
         }
     }
     if (found) {
-        emit definitionReady(uri, range);
+        const auto documentIt = documents.constFind(request.uri);
+        const int documentVersion = request.documentVersion >= 0
+            ? request.documentVersion
+            : (documentIt == documents.constEnd() ? -1 : documentIt->version);
+        emit definitionReady(request.uri, documentVersion, uri, range);
+    }
+}
+
+void LspClient::cancelRequest(int id, bool notifyServer)
+{
+    if (!pendingRequests.contains(id)) {
+        return;
+    }
+
+    pendingRequests.remove(id);
+    if (notifyServer) {
+        sendNotification(QStringLiteral("$/cancelRequest"), QJsonObject{{QStringLiteral("id"), id}});
+    }
+    if (pendingRequests.isEmpty()) {
+        requestTimer.stop();
+    }
+}
+
+void LspClient::cancelRequestsForDocument(const QString &uri)
+{
+    const QList<int> requestIds = pendingRequests.keys();
+    for (const int id : requestIds) {
+        const auto it = pendingRequests.constFind(id);
+        if (it != pendingRequests.constEnd() && it->uri == uri) {
+            cancelRequest(id);
+        }
+    }
+}
+
+void LspClient::cancelRequestsForDocument(const QString &uri, RequestType type)
+{
+    const QList<int> requestIds = pendingRequests.keys();
+    for (const int id : requestIds) {
+        const auto it = pendingRequests.constFind(id);
+        if (it != pendingRequests.constEnd() && it->uri == uri && it->type == type) {
+            cancelRequest(id);
+        }
+    }
+}
+
+void LspClient::expireRequests()
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const QList<int> requestIds = pendingRequests.keys();
+    for (const int id : requestIds) {
+        const auto it = pendingRequests.constFind(id);
+        if (it == pendingRequests.constEnd() || it->deadlineMs > now) {
+            continue;
+        }
+
+        const QString method = it->method;
+        const bool initializeTimedOut = it->type == RequestType::Initialize;
+        cancelRequest(id);
+        const QString message = QStringLiteral("LSP request %1 timed out after %2 ms")
+            .arg(method)
+            .arg(RequestTimeoutMs);
+        emit serverError(message);
+        emit statusChanged(message);
+        if (initializeTimedOut && process && process->state() != QProcess::NotRunning) {
+            process->kill();
+        }
     }
 }
 

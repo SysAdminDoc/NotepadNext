@@ -12,9 +12,11 @@
 #define LSPCLIENT_H
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QHash>
 #include <QList>
 #include <QObject>
+#include <QTimer>
 #include <QStringList>
 #include <QVector>
 
@@ -71,6 +73,8 @@ class LspClient final : public QObject
     Q_OBJECT
 
 public:
+    static constexpr qint64 RequestTimeoutMs = 5000;
+
     explicit LspClient(QString program, QStringList arguments, QObject *parent = nullptr);
     ~LspClient() override;
 
@@ -85,6 +89,7 @@ public:
 
     bool isRunning() const;
     bool isInitialized() const { return initializationComplete; }
+    int documentCount() const { return documents.size(); }
 
     void openDocument(const QString &uri,
                       const QString &languageId,
@@ -95,15 +100,17 @@ public:
     void saveDocument(const QString &uri);
     void closeDocument(const QString &uri);
 
-    void requestHover(const QString &uri, const LspPosition &position);
-    void requestDefinition(const QString &uri, const LspPosition &position);
+    void requestHover(const QString &uri, const LspPosition &position, int documentVersion = -1);
+    void requestDefinition(const QString &uri, const LspPosition &position, int documentVersion = -1);
+    void cancelRequestsForDocument(const QString &uri);
 
 signals:
     void initialized();
     void stopped(int exitCode);
-    void diagnosticsReady(const QString &uri, const QVector<LspDiagnostic> &diagnostics);
-    void hoverReady(const QString &uri, const LspPosition &position, const QString &text);
-    void definitionReady(const QString &uri, const LspRange &range);
+    void diagnosticsReady(const QString &uri, int documentVersion, const QVector<LspDiagnostic> &diagnostics);
+    void hoverReady(const QString &uri, int documentVersion, const LspPosition &position, const QString &text);
+    void definitionReady(const QString &requestUri, int documentVersion, const QString &targetUri, const LspRange &range);
+    void statusChanged(const QString &message);
     void serverError(const QString &message);
 
 private:
@@ -116,8 +123,11 @@ private:
     struct PendingRequest
     {
         RequestType type;
+        QString method;
         QString uri;
         LspPosition position;
+        int documentVersion = -1;
+        qint64 deadlineMs = 0;
     };
 
     struct DocumentState
@@ -129,7 +139,7 @@ private:
     };
 
     int sendRequest(const QString &method, const QJsonObject &params, RequestType type,
-                    const QString &uri = QString(), const LspPosition &position = {});
+                    const QString &uri = QString(), const LspPosition &position = {}, int documentVersion = -1);
     void sendNotification(const QString &method, const QJsonObject &params);
     void sendResponse(const QJsonValue &id, const QJsonValue &result);
     void sendInitialize();
@@ -140,6 +150,9 @@ private:
     void handleResponse(const QJsonObject &message);
     void readStandardOutput();
     void readStandardError();
+    void cancelRequest(int id, bool notifyServer = true);
+    void cancelRequestsForDocument(const QString &uri, RequestType type);
+    void expireRequests();
     QString hoverText(const QJsonValue &contents) const;
     bool parseLocation(const QJsonObject &location, QString *uri, LspRange *range) const;
 
@@ -151,10 +164,9 @@ private:
 
     int nextRequestId = 1;
     QHash<int, PendingRequest> pendingRequests;
-    DocumentState document;
-    DocumentState pendingDocument;
-    bool hasDocument = false;
-    bool hasPendingDocument = false;
+    QHash<QString, DocumentState> documents;
+    QTimer requestTimer;
+    bool stopping = false;
     bool initializationComplete = false;
 };
 

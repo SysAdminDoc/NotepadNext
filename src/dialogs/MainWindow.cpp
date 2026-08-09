@@ -131,6 +131,15 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
 
     ui->setupUi(this);
 
+    if (app->getLspManager()) {
+        connect(app->getLspManager(), &LspManager::statusChanged, this,
+                [this](ScintillaNext *editor, const QString &message) {
+            if (editor == currentEditor()) {
+                statusBar()->showMessage(message, 5000);
+            }
+        });
+    }
+
 #ifdef Q_OS_WIN
     setupWindowsTitleBar();
 #endif

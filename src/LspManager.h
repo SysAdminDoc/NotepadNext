@@ -35,6 +35,7 @@ private:
     struct EditorState
     {
         QPointer<LspClient> client;
+        QString workspaceKey;
         QString uri;
         int version = 1;
         int errorIndicator = -1;
@@ -49,9 +50,17 @@ private:
     void editorSaved(ScintillaNext *editor);
     void editorDwelled(ScintillaNext *editor, int x, int y);
     void clearDiagnostics(ScintillaNext *editor);
-    void showDiagnostics(ScintillaNext *editor, const QString &uri, const QVector<LspDiagnostic> &diagnostics);
-    void showHover(ScintillaNext *editor, const QString &uri, const LspPosition &position, const QString &text);
-    void goToDefinition(ScintillaNext *sourceEditor, const QString &uri, const LspRange &range);
+    void connectClient(LspClient *client, const QString &workspaceKey);
+    void releaseClient(const QString &workspaceKey, LspClient *client);
+    void showDiagnostics(LspClient *client, const QString &uri, int documentVersion,
+                         const QVector<LspDiagnostic> &diagnostics);
+    void showHover(LspClient *client, const QString &uri, int documentVersion,
+                   const LspPosition &position, const QString &text);
+    void goToDefinition(LspClient *client, const QString &requestUri, int documentVersion,
+                        const QString &targetUri, const LspRange &range);
+    void reportClientStatus(LspClient *client, const QString &message);
+    ScintillaNext *editorForDocument(LspClient *client, const QString &uri) const;
+    QString workspaceRootForEditor(ScintillaNext *editor) const;
 
     static QByteArray editorText(ScintillaNext *editor);
     static QString editorUri(ScintillaNext *editor);
@@ -60,6 +69,10 @@ private:
 
     EditorManager *editorManager = nullptr;
     QHash<ScintillaNext *, EditorState> states;
+    QHash<QString, QPointer<LspClient>> workspaceClients;
+
+signals:
+    void statusChanged(ScintillaNext *editor, const QString &message);
 };
 
 #endif // LSPMANAGER_H

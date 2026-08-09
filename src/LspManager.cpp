@@ -13,6 +13,7 @@
 #include "EditorManager.h"
 #include "ScintillaNext.h"
 
+#include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QUrl>
@@ -24,6 +25,38 @@ namespace
 constexpr int LspErrorIndicatorColor = 0x0000FF;
 constexpr int LspWarningIndicatorColor = 0x0080FF;
 constexpr int LspInfoIndicatorColor = 0xFF8000;
+
+const QStringList WorkspaceMarkers = {
+    QStringLiteral(".git"),
+    QStringLiteral("compile_commands.json"),
+    QStringLiteral("CMakeLists.txt"),
+    QStringLiteral("Cargo.toml"),
+    QStringLiteral("go.mod"),
+    QStringLiteral("package.json"),
+    QStringLiteral("pyproject.toml"),
+    QStringLiteral("setup.cfg"),
+};
+
+QString workspaceRootForPath(const QString &filePath)
+{
+    QFileInfo fileInfo(filePath);
+    QDir directory(fileInfo.absolutePath());
+    while (directory.exists()) {
+        for (const QString &marker : WorkspaceMarkers) {
+            if (QFileInfo::exists(directory.filePath(marker))) {
+                return QDir(directory.absolutePath()).canonicalPath().isEmpty()
+                    ? directory.absolutePath()
+                    : QDir(directory.absolutePath()).canonicalPath();
+            }
+        }
+
+        const QDir parent = directory;
+        if (!directory.cdUp() || directory.absolutePath() == parent.absolutePath()) {
+            break;
+        }
+    }
+    return fileInfo.absolutePath();
+}
 
 void configureIndicator(ScintillaNext *editor, int indicator, int color)
 {
@@ -120,12 +153,13 @@ void LspManager::detachEditor(ScintillaNext *editor)
         return;
     }
 
-    if (it->client) {
-        LspClient *client = it->client;
-        client->stop();
-        delete client;
+    const QString workspaceKey = it->workspaceKey;
+    LspClient *client = it->client;
+    if (client && !it->uri.isEmpty()) {
+        client->closeDocument(it->uri);
     }
     states.erase(it);
+    releaseClient(workspaceKey, client);
 }
 
 void LspManager::configureEditor(ScintillaNext *editor)
@@ -138,27 +172,30 @@ void LspManager::configureEditor(ScintillaNext *editor)
     EditorState &state = it.value();
     clearDiagnostics(editor);
 
-    if (state.client) {
-        LspClient *client = state.client;
-        client->stop();
-        delete client;
-        state.client = nullptr;
+    const QString previousWorkspaceKey = state.workspaceKey;
+    LspClient *previousClient = state.client;
+    if (previousClient && !state.uri.isEmpty()) {
+        previousClient->closeDocument(state.uri);
     }
+    state.client = nullptr;
+    state.workspaceKey.clear();
     state.uri.clear();
     state.version = 1;
+    releaseClient(previousWorkspaceKey, previousClient);
 
     if (editor->isLargeFileMode()) {
         qInfo("LSP is disabled for %s in large-file safety mode", qUtf8Printable(editor->getName()));
+        emit statusChanged(editor, tr("LSP disabled in large-file safety mode"));
         return;
     }
 
     QString languageId;
     QString serverCommand;
     QStringList serverArguments;
-    if (!editor->isFile() || !LspClient::configurationForLanguage(editor->languageName,
-                                                                  &languageId,
-                                                                  &serverCommand,
-                                                                  &serverArguments)) {
+    if (!LspClient::configurationForLanguage(editor->languageName,
+                                             &languageId,
+                                             &serverCommand,
+                                             &serverArguments)) {
         return;
     }
 
@@ -169,39 +206,76 @@ void LspManager::configureEditor(ScintillaNext *editor)
         return;
     }
 
-    const QFileInfo fileInfo(editor->getFilePath());
-    if (fileInfo.absoluteFilePath().isEmpty()) {
-        return;
+    const QString rootPath = workspaceRootForEditor(editor);
+    state.uri = editorUri(editor);
+    if (!editor->isFile()) {
+        emit statusChanged(editor, tr("LSP is using an untitled document URI until this buffer is saved."));
+    }
+    const QString workspaceKey = rootPath + QChar('\n') + executable + QChar('\n') + serverArguments.join(QChar('\n'));
+    LspClient *client = workspaceClients.value(workspaceKey);
+    if (!client) {
+        client = new LspClient(executable, serverArguments, this);
+        workspaceClients.insert(workspaceKey, client);
+        connectClient(client, workspaceKey);
     }
 
-    state.uri = editorUri(editor);
-    LspClient *client = new LspClient(executable, serverArguments, this);
     state.client = client;
-
-    connect(client, &LspClient::diagnosticsReady, this,
-            [this, editor](const QString &uri, const QVector<LspDiagnostic> &diagnostics) {
-        showDiagnostics(editor, uri, diagnostics);
-    });
-    connect(client, &LspClient::hoverReady, this,
-            [this, editor](const QString &uri, const LspPosition &position, const QString &text) {
-        showHover(editor, uri, position, text);
-    });
-    connect(client, &LspClient::definitionReady, this,
-            [this, editor](const QString &uri, const LspRange &range) {
-        goToDefinition(editor, uri, range);
-    });
-    connect(client, &LspClient::serverError, this, [editor](const QString &message) {
-        qWarning("LSP server for %s: %s", qUtf8Printable(editor->languageName), qUtf8Printable(message));
-    });
-
-    const QString rootPath = fileInfo.absolutePath();
+    state.workspaceKey = workspaceKey;
     if (!client->start(rootPath)) {
-        delete client;
         state.client = nullptr;
+        state.workspaceKey.clear();
         state.uri.clear();
+        releaseClient(workspaceKey, client);
+        emit statusChanged(editor, tr("Unable to start the LSP server"));
         return;
     }
     client->openDocument(state.uri, languageId, editorText(editor), state.version, rootPath);
+}
+
+void LspManager::connectClient(LspClient *client, const QString &workspaceKey)
+{
+    connect(client, &LspClient::diagnosticsReady, this,
+            [this, client](const QString &uri, int documentVersion,
+                           const QVector<LspDiagnostic> &diagnostics) {
+        showDiagnostics(client, uri, documentVersion, diagnostics);
+    });
+    connect(client, &LspClient::hoverReady, this,
+            [this, client](const QString &uri, int documentVersion,
+                           const LspPosition &position, const QString &text) {
+        showHover(client, uri, documentVersion, position, text);
+    });
+    connect(client, &LspClient::definitionReady, this,
+            [this, client](const QString &requestUri, int documentVersion,
+                           const QString &targetUri, const LspRange &range) {
+        goToDefinition(client, requestUri, documentVersion, targetUri, range);
+    });
+    connect(client, &LspClient::serverError, this, [this, client](const QString &message) {
+        reportClientStatus(client, message);
+    });
+    connect(client, &LspClient::statusChanged, this, [this, client](const QString &message) {
+        reportClientStatus(client, message);
+    });
+    connect(client, &LspClient::stopped, this, [this, client, workspaceKey](int) {
+        reportClientStatus(client, tr("LSP server stopped"));
+        if (client->documentCount() == 0) {
+            releaseClient(workspaceKey, client);
+        }
+    });
+}
+
+void LspManager::releaseClient(const QString &workspaceKey, LspClient *client)
+{
+    if (!client || client->documentCount() > 0) {
+        return;
+    }
+
+    if (workspaceClients.value(workspaceKey) != client) {
+        return;
+    }
+
+    workspaceClients.remove(workspaceKey);
+    client->stop();
+    client->deleteLater();
 }
 
 void LspManager::editorModified(ScintillaNext *editor)
@@ -241,7 +315,7 @@ void LspManager::requestHover(ScintillaNext *editor, int position)
         return;
     }
 
-    it->client->requestHover(it->uri, toLspPosition(editor, position));
+    it->client->requestHover(it->uri, toLspPosition(editor, position), it->version);
 }
 
 void LspManager::requestDefinition(ScintillaNext *editor)
@@ -251,7 +325,7 @@ void LspManager::requestDefinition(ScintillaNext *editor)
         return;
     }
 
-    it->client->requestDefinition(it->uri, toLspPosition(editor, static_cast<int>(editor->currentPos())));
+    it->client->requestDefinition(it->uri, toLspPosition(editor, static_cast<int>(editor->currentPos())), it->version);
 }
 
 void LspManager::clearDiagnostics(ScintillaNext *editor)
@@ -270,11 +344,17 @@ void LspManager::clearDiagnostics(ScintillaNext *editor)
     }
 }
 
-void LspManager::showDiagnostics(ScintillaNext *editor, const QString &uri,
+void LspManager::showDiagnostics(LspClient *client, const QString &uri, int documentVersion,
                                  const QVector<LspDiagnostic> &diagnostics)
 {
+    ScintillaNext *editor = editorForDocument(client, uri);
+    if (!editor) {
+        return;
+    }
+
     const auto it = states.constFind(editor);
-    if (it == states.constEnd() || uri != it->uri) {
+    if (it == states.constEnd() || (documentVersion >= 0 && documentVersion != it->version) ||
+        (documentVersion < 0 && it->version > 1)) {
         return;
     }
 
@@ -300,11 +380,17 @@ void LspManager::showDiagnostics(ScintillaNext *editor, const QString &uri,
     }
 }
 
-void LspManager::showHover(ScintillaNext *editor, const QString &uri,
+void LspManager::showHover(LspClient *client, const QString &uri, int documentVersion,
                            const LspPosition &position, const QString &text)
 {
+    ScintillaNext *editor = editorForDocument(client, uri);
+    if (!editor) {
+        return;
+    }
+
     const auto it = states.constFind(editor);
-    if (it == states.constEnd() || uri != it->uri || text.trimmed().isEmpty()) {
+    if (it == states.constEnd() || (documentVersion >= 0 && documentVersion != it->version) ||
+        text.trimmed().isEmpty()) {
         return;
     }
 
@@ -313,10 +399,17 @@ void LspManager::showHover(ScintillaNext *editor, const QString &uri,
     editor->callTipShow(editorPosition, textBytes.constData());
 }
 
-void LspManager::goToDefinition(ScintillaNext *sourceEditor, const QString &uri, const LspRange &range)
+void LspManager::goToDefinition(LspClient *client, const QString &requestUri, int documentVersion,
+                                const QString &uri, const LspRange &range)
 {
+    ScintillaNext *sourceEditor = editorForDocument(client, requestUri);
+    if (!sourceEditor) {
+        return;
+    }
+
     const auto sourceIt = states.constFind(sourceEditor);
-    if (sourceIt == states.constEnd() || uri.isEmpty()) {
+    if (sourceIt == states.constEnd() ||
+        (documentVersion >= 0 && documentVersion != sourceIt->version) || uri.isEmpty()) {
         return;
     }
 
@@ -327,12 +420,17 @@ void LspManager::goToDefinition(ScintillaNext *sourceEditor, const QString &uri,
     else {
         const QUrl fileUrl(uri);
         if (!fileUrl.isLocalFile()) {
+            emit statusChanged(sourceEditor, tr("LSP returned a non-local definition that cannot be opened."));
             return;
         }
         const QString path = fileUrl.toLocalFile();
         targetEditor = editorManager->getEditorByFilePath(path);
         if (!targetEditor) {
-            targetEditor = editorManager->createEditorFromFile(path);
+            QString error;
+            targetEditor = editorManager->createEditorFromFile(path, false, &error);
+            if (!targetEditor && !error.isEmpty()) {
+                emit statusChanged(sourceEditor, tr("Unable to open LSP definition: %1").arg(error));
+            }
         }
     }
 
@@ -345,6 +443,48 @@ void LspManager::goToDefinition(ScintillaNext *sourceEditor, const QString &uri,
     targetEditor->goToRange({start, qMax(start, end)});
 }
 
+void LspManager::reportClientStatus(LspClient *client, const QString &message)
+{
+    if (!client || message.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QList<ScintillaNext *> editors = states.keys();
+    for (ScintillaNext *editor : editors) {
+        const auto it = states.constFind(editor);
+        if (it != states.constEnd() && it->client == client) {
+            emit statusChanged(editor, message);
+        }
+    }
+}
+
+ScintillaNext *LspManager::editorForDocument(LspClient *client, const QString &uri) const
+{
+    if (!client || uri.isEmpty()) {
+        return nullptr;
+    }
+
+    for (auto it = states.constBegin(); it != states.constEnd(); ++it) {
+        if (it->client == client && it->uri == uri) {
+            return it.key();
+        }
+    }
+    return nullptr;
+}
+
+QString LspManager::workspaceRootForEditor(ScintillaNext *editor) const
+{
+    if (!editor) {
+        return QDir::currentPath();
+    }
+
+    if (editor->isFile()) {
+        return workspaceRootForPath(editor->getFilePath());
+    }
+
+    return QDir::currentPath();
+}
+
 QByteArray LspManager::editorText(ScintillaNext *editor)
 {
     return editor ? editor->getText(editor->textLength()) : QByteArray();
@@ -352,10 +492,15 @@ QByteArray LspManager::editorText(ScintillaNext *editor)
 
 QString LspManager::editorUri(ScintillaNext *editor)
 {
-    if (!editor || !editor->isFile()) {
+    if (!editor) {
         return QString();
     }
-    return QUrl::fromLocalFile(QFileInfo(editor->getFilePath()).absoluteFilePath()).toString(QUrl::FullyEncoded);
+    if (editor->isFile()) {
+        return QUrl::fromLocalFile(QFileInfo(editor->getFilePath()).absoluteFilePath()).toString(QUrl::FullyEncoded);
+    }
+
+    const QString name = editor->getName().isEmpty() ? QStringLiteral("buffer") : editor->getName();
+    return QStringLiteral("untitled:%1").arg(QString::fromLatin1(QUrl::toPercentEncoding(name)));
 }
 
 LspPosition LspManager::toLspPosition(ScintillaNext *editor, int position)

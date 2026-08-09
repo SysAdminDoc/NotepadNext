@@ -20,6 +20,8 @@
 #include "LuaConsoleDock.h"
 #include "ui_LuaConsoleDock.h"
 
+#include "CapabilityTrust.h"
+#include "MainWindow.h"
 #include "ScintillaNext.h"
 #include "ILexer.h"
 #include "Lexilla.h"
@@ -83,9 +85,10 @@ static int cf_global_print(lua_State *L) {
 }
 
 
-LuaConsoleDock::LuaConsoleDock(LuaState *l, QWidget *parent) :
+LuaConsoleDock::LuaConsoleDock(LuaState *l, CapabilityTrust::Manager *trustManager, QWidget *parent) :
     QDockWidget(parent),
-    ui(new Ui::LuaConsoleDock)
+    ui(new Ui::LuaConsoleDock),
+    trustManager(trustManager)
 {
     L = l;
 
@@ -307,6 +310,15 @@ void LuaConsoleDock::historyEnd()
 
 void LuaConsoleDock::runCurrentCommand()
 {
+    const QString text((const char *)input->characterPointer());
+    const QString root = workspaceRoot();
+    if (trustManager && !trustManager->authorize(this, root,
+                                                 CapabilityTrust::Capability::LuaConsole,
+                                                 QStringLiteral("lua.execute"))) {
+        writeErrorToOutput("Lua console execution is blocked by workspace trust.\r\n");
+        return;
+    }
+
     int prevLastLine = output->lineCount();
     int newLastLine = 0;
 
@@ -331,7 +343,6 @@ void LuaConsoleDock::runCurrentCommand()
         output->marginSetStyle(i - 1, STYLE_LINENUMBER);
     }
 
-    QString text((const char *)input->characterPointer());
     historyAdd(text);
 
     input->clearAll();
@@ -340,6 +351,18 @@ void LuaConsoleDock::runCurrentCommand()
     input->marginSetStyle(0, STYLE_LINENUMBER);
 
     LuaExtension::Instance().OnExecute(text.toLatin1().constData());
+    if (trustManager) {
+        trustManager->record(root, CapabilityTrust::Capability::LuaConsole,
+                             QStringLiteral("lua.execute"), QStringLiteral("completed"));
+    }
+}
+
+QString LuaConsoleDock::workspaceRoot() const
+{
+    const auto *mainWindow = qobject_cast<const MainWindow *>(parentWidget());
+    ScintillaNext *editor = mainWindow ? mainWindow->currentEditor() : Q_NULLPTR;
+    return CapabilityTrust::Manager::workspaceRootForPath(
+        editor && editor->isFile() ? editor->getFilePath() : QString());
 }
 
 bool LuaConsoleDock::eventFilter(QObject *obj, QEvent *event)

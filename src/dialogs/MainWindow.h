@@ -56,6 +56,7 @@ class HexEditorDock;
 class RegexBuilderDock;
 class ScriptConsoleDock;
 class SnippetManagerDock;
+class QMenu;
 #ifdef Q_OS_WIN
 class WindowsTitleBar;
 #endif
@@ -177,6 +178,7 @@ private:
     RegexBuilderDock *regexBuilderDock = Q_NULLPTR;
     ScriptConsoleDock *scriptConsoleDock = Q_NULLPTR;
     SnippetManagerDock *snippetManagerDock = Q_NULLPTR;
+    QMenu *workspaceTrustMenu = Q_NULLPTR;
     QAction *stageCurrentFileAction = Q_NULLPTR;
     QAction *unstageCurrentFileAction = Q_NULLPTR;
     QAction *blameGutterAction = Q_NULLPTR;
@@ -211,6 +213,9 @@ private:
     void showSaveErrorMessage(ScintillaNext *editor, QFileDevice::FileError error);
     void showEditorZoomLevelIndicator();
     void setupThemeMenu();
+    void setupWorkspaceTrustMenu();
+    void refreshWorkspaceTrustMenu();
+    QString currentWorkspaceRoot() const;
     void setupIconThemeMenu();
     void setupEncodingMenu();
     QAction *addEncodingAction(const QString &label, const QByteArray &codecName, ScintillaNext::BomType bom);

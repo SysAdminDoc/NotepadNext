@@ -155,6 +155,7 @@ qt_add_executable(NotepadNextAccessibilityTests
     ${CMAKE_SOURCE_DIR}/src/RipgrepSearch.cpp
     ${CMAKE_SOURCE_DIR}/src/TerminalDock.cpp
     ${CMAKE_SOURCE_DIR}/src/TerminalProcess.cpp
+    ${CMAKE_SOURCE_DIR}/src/CapabilityTrust.cpp
 )
 
 target_include_directories(NotepadNextAccessibilityTests

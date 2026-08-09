@@ -23,13 +23,18 @@
 
 class MainWindow;
 class ScintillaNext;
+namespace CapabilityTrust {
+enum class Capability;
+class Manager;
+}
 
 class ScriptConsoleBridge : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit ScriptConsoleBridge(MainWindow *window, QObject *parent = nullptr);
+    explicit ScriptConsoleBridge(MainWindow *window, CapabilityTrust::Manager *trustManager,
+                                 QObject *parent = nullptr);
 
     ScintillaNext *currentEditor() const;
 
@@ -40,7 +45,7 @@ public:
     Q_INVOKABLE void insertText(const QString &value);
     Q_INVOKABLE QString filePath() const;
     Q_INVOKABLE bool save();
-    Q_INVOKABLE void openFile(const QString &path);
+    Q_INVOKABLE bool openFile(const QString &path);
 
 public slots:
     void log(const QString &value);
@@ -49,5 +54,9 @@ signals:
     void outputMessage(const QString &value);
 
 private:
+    QString workspaceRoot() const;
+    bool authorize(CapabilityTrust::Capability capability, const QString &operation);
+
     MainWindow *window;
+    CapabilityTrust::Manager *trustManager;
 };

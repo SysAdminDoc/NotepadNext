@@ -13,6 +13,8 @@
 #include "ILexer.h"
 #include "Lexilla.h"
 
+#include <QFile>
+#include <QTemporaryDir>
 #include <QtTest>
 
 class LanguageDefinitionTests final : public QObject
@@ -21,6 +23,7 @@ class LanguageDefinitionTests final : public QObject
 
 private slots:
     void modernDefinitionsLoadAndExposeLexers();
+    void checkedLuaFilesReportFailures();
 };
 
 void LanguageDefinitionTests::modernDefinitionsLoadAndExposeLexers()
@@ -66,6 +69,35 @@ void LanguageDefinitionTests::modernDefinitionsLoadAndExposeLexers()
             lexer->Release();
         }
     }
+}
+
+void LanguageDefinitionTests::checkedLuaFilesReportFailures()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    LuaState state;
+    QString error;
+    QVERIFY(!state.executeFileChecked(directory.filePath(QStringLiteral("missing.lua")), &error));
+    QVERIFY(!error.isEmpty());
+
+    const QString validPath = directory.filePath(QStringLiteral("valid.lua"));
+    QFile valid(validPath);
+    QVERIFY(valid.open(QIODevice::WriteOnly));
+    QVERIFY(valid.write("return true") > 0);
+    valid.close();
+    error.clear();
+    QVERIFY(state.executeFileChecked(validPath, &error));
+    QVERIFY(error.isEmpty());
+
+    const QString invalidPath = directory.filePath(QStringLiteral("invalid.lua"));
+    QFile invalid(invalidPath);
+    QVERIFY(invalid.open(QIODevice::WriteOnly));
+    QVERIFY(invalid.write("this is not valid Lua") > 0);
+    invalid.close();
+    error.clear();
+    QVERIFY(!state.executeFileChecked(invalidPath, &error));
+    QVERIFY(!error.isEmpty());
 }
 
 QTEST_APPLESS_MAIN(LanguageDefinitionTests)

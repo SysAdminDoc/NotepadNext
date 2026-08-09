@@ -18,6 +18,7 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class TerminalProcess;
+namespace CapabilityTrust { class Manager; }
 
 class TerminalDock final : public QDockWidget
 {
@@ -25,6 +26,7 @@ class TerminalDock final : public QDockWidget
 
 public:
     explicit TerminalDock(QWidget *parent = nullptr);
+    TerminalDock(CapabilityTrust::Manager *trustManager, QWidget *parent);
     ~TerminalDock() override;
 
     QString workingDirectory() const;
@@ -46,6 +48,7 @@ private:
     void handleError(const QString &error);
 
     TerminalProcess *process = nullptr;
+    CapabilityTrust::Manager *trustManager = nullptr;
     QPlainTextEdit *output = nullptr;
     QLineEdit *input = nullptr;
     QLabel *workingDirectoryLabel = nullptr;

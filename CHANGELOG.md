@@ -4,6 +4,7 @@ All notable changes to NotepadNext will be documented in this file.
 
 ## [Unreleased]
 
+- Security: Added workspace-scoped capability trust for JavaScript, Lua, script-file access, document automation, terminal processes, and optional workspace startup Lua, with session/persistent grants, independent revocation, and redacted audit records.
 - Security: Windows Notepad++ DLL plugins now require an explicit, persisted SHA-256 trust decision; profile plugins are opt-in and `--safe-mode` disables native plugins for the session.
 - Reliability: External file changes now preserve the in-memory document on reload failure, distinguish deleted/restored/conflicted states, and block ordinary saves until the change is resolved explicitly.
 - Reliability: SFTP saves now verify remote size/mtime, upload to a same-directory temporary path, validate the transfer, and atomically replace the destination without silently overwriting concurrent edits.

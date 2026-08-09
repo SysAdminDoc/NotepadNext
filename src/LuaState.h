@@ -38,6 +38,7 @@ public:
     void setVariable(const char *name, bool value);
 
     void executeFile(const QString &fileName);
+    bool executeFileChecked(const QString &fileName, QString *error = Q_NULLPTR);
     void clearStack();
 
     void raiseError(const char *errorMessage = Q_NULLPTR);
@@ -57,7 +58,7 @@ public:
     }
 
 private:
-    void internal_execute(const char *statement, bool clear);
+    bool internal_execute(const char *statement, bool clear, QString *error = Q_NULLPTR);
 
     template<typename T>
     T internal_executeAndReturn(const char *statement);

@@ -18,13 +18,27 @@
 
 #include "ScriptConsoleBridge.h"
 
+#include "CapabilityTrust.h"
 #include "MainWindow.h"
 #include "ScintillaNext.h"
 
-ScriptConsoleBridge::ScriptConsoleBridge(MainWindow *window, QObject *parent)
+ScriptConsoleBridge::ScriptConsoleBridge(MainWindow *window, CapabilityTrust::Manager *trustManager, QObject *parent)
     : QObject(parent)
     , window(window)
+    , trustManager(trustManager)
 {
+}
+
+QString ScriptConsoleBridge::workspaceRoot() const
+{
+    ScintillaNext *editor = currentEditor();
+    return CapabilityTrust::Manager::workspaceRootForPath(
+        editor && editor->isFile() ? editor->getFilePath() : QString());
+}
+
+bool ScriptConsoleBridge::authorize(CapabilityTrust::Capability capability, const QString &operation)
+{
+    return !trustManager || trustManager->authorize(window, workspaceRoot(), capability, operation);
 }
 
 ScintillaNext *ScriptConsoleBridge::currentEditor() const
@@ -40,6 +54,10 @@ QString ScriptConsoleBridge::text() const
 
 void ScriptConsoleBridge::setText(const QString &value)
 {
+    if (!authorize(CapabilityTrust::Capability::ScriptDocumentEdit, QStringLiteral("javascript.document-edit"))) {
+        emit outputMessage(tr("Script document editing is blocked by workspace trust."));
+        return;
+    }
     if (ScintillaNext *editor = currentEditor()) {
         const QByteArray utf8 = value.toUtf8();
         editor->setText(utf8.constData());
@@ -54,6 +72,10 @@ QString ScriptConsoleBridge::selectedText() const
 
 void ScriptConsoleBridge::replaceSelection(const QString &value)
 {
+    if (!authorize(CapabilityTrust::Capability::ScriptDocumentEdit, QStringLiteral("javascript.document-edit"))) {
+        emit outputMessage(tr("Script document editing is blocked by workspace trust."));
+        return;
+    }
     if (ScintillaNext *editor = currentEditor()) {
         const QByteArray utf8 = value.toUtf8();
         editor->replaceSel(utf8.constData());
@@ -62,6 +84,10 @@ void ScriptConsoleBridge::replaceSelection(const QString &value)
 
 void ScriptConsoleBridge::insertText(const QString &value)
 {
+    if (!authorize(CapabilityTrust::Capability::ScriptDocumentEdit, QStringLiteral("javascript.document-edit"))) {
+        emit outputMessage(tr("Script document editing is blocked by workspace trust."));
+        return;
+    }
     if (ScintillaNext *editor = currentEditor()) {
         const QByteArray utf8 = value.toUtf8();
         editor->insertText(editor->currentPos(), utf8.constData());
@@ -77,14 +103,42 @@ QString ScriptConsoleBridge::filePath() const
 bool ScriptConsoleBridge::save()
 {
     ScintillaNext *editor = currentEditor();
-    return window && editor && window->saveFile(editor);
+    if (!editor || !authorize(CapabilityTrust::Capability::ScriptDocumentSave,
+                              QStringLiteral("javascript.document-save"))) {
+        if (editor) {
+            emit outputMessage(tr("Script document saving is blocked by workspace trust."));
+        }
+        return false;
+    }
+
+    const bool saved = window && window->saveFile(editor);
+    if (trustManager) {
+        trustManager->record(workspaceRoot(), CapabilityTrust::Capability::ScriptDocumentSave,
+                             QStringLiteral("javascript.document-save"), saved ? QStringLiteral("saved") : QStringLiteral("failed"));
+    }
+    return saved;
 }
 
-void ScriptConsoleBridge::openFile(const QString &path)
+bool ScriptConsoleBridge::openFile(const QString &path)
 {
-    if (window && !path.isEmpty()) {
-        window->openFile(path);
+    if (!window || path.isEmpty()) {
+        return false;
     }
+
+    const QString targetRoot = CapabilityTrust::Manager::workspaceRootForPath(path);
+    if (trustManager && !trustManager->authorize(window, targetRoot,
+                                                 CapabilityTrust::Capability::ScriptDocumentOpen,
+                                                 QStringLiteral("javascript.document-open"))) {
+        emit outputMessage(tr("Opening a document from JavaScript is blocked by workspace trust."));
+        return false;
+    }
+
+    window->openFile(path);
+    if (trustManager) {
+        trustManager->record(targetRoot, CapabilityTrust::Capability::ScriptDocumentOpen,
+                             QStringLiteral("javascript.document-open"), QStringLiteral("opened"));
+    }
+    return true;
 }
 
 void ScriptConsoleBridge::log(const QString &value)

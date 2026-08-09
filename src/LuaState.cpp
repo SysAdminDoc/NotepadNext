@@ -133,7 +133,7 @@ void LuaState::setVariable(const char *name, bool value)
     lua_setglobal(L, name);
 }
 
-void LuaState::internal_execute(const char *statement, bool clear)
+bool LuaState::internal_execute(const char *statement, bool clear, QString *error)
 {
     // There may be other things on the stack so save the top of it
     const int stacktop = lua_gettop(L);
@@ -144,34 +144,53 @@ void LuaState::internal_execute(const char *statement, bool clear)
         status = lua_pcall(L, 0, LUA_MULTRET, 0);
     }
     else if (status == LUA_ERRSYNTAX) {
-        qWarning("LUA_ERRSYNTAX: %s", statement);
+        qWarning("LUA_ERRSYNTAX");
     }
     else if (status == LUA_ERRMEM) {
-        qFatal("Lua memory allocation error");
+        qWarning("Lua memory allocation error");
     }
 
     if (status != LUA_OK) {
-        // Print an error message
-        //writeErrorToOutput(lua_tostring(L, -1));
-        //writeErrorToOutput("\r\n");
-        qWarning("%s", lua_tostring(L, -1));
+        const char *message = lua_tostring(L, -1);
+        if (error) {
+            *error = message ? QString::fromUtf8(message) : QStringLiteral("Unknown Lua error");
+        }
+        qWarning("Lua execution failed: %s", message ? message : "Unknown Lua error");
     }
 
     if (clear)
         lua_settop(L, stacktop);
+
+    return status == LUA_OK;
 }
 
 void LuaState::executeFile(const QString &fileName)
 {
-    QFile ff(fileName);
+    QString error;
+    if (!executeFileChecked(fileName, &error)) {
+        qWarning("Cannot execute Lua file: %s", qUtf8Printable(error));
+    }
+}
 
+bool LuaState::executeFileChecked(const QString &fileName, QString *error)
+{
+    QFile ff(fileName);
     if (!ff.open(QFile::ReadOnly)) {
-        qFatal("Cannot execute file: %s", fileName.toLatin1().constData());
+        if (error) {
+            *error = ff.errorString();
+        }
+        return false;
     }
 
-    internal_execute(ff.readAll().constData(), true);
+    const QByteArray source = ff.readAll();
+    if (ff.error() != QFileDevice::NoError) {
+        if (error) {
+            *error = ff.errorString();
+        }
+        return false;
+    }
 
-    ff.close();
+    return internal_execute(source.constData(), true, error);
 }
 
 void LuaState::clearStack()

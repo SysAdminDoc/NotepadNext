@@ -26,6 +26,7 @@
 
 #include <QCommandLineParser>
 #include <QPointer>
+#include <QSet>
 #include <QTimer>
 
 
@@ -41,6 +42,7 @@ class LspManager;
 class SchemaManager;
 class GitManager;
 class SftpManager;
+namespace CapabilityTrust { class Manager; }
 
 
 class NotepadNextApplication : public SingleApplication
@@ -60,6 +62,7 @@ public:
     SchemaManager *getSchemaManager() const { return schemaManager; }
     GitManager *getGitManager() const { return gitManager; }
     SftpManager *getSftpManager() const { return sftpManager; }
+    CapabilityTrust::Manager *getCapabilityTrust() const { return capabilityTrust; }
 
     LuaState *getLuaState() const { return luaState; }
     QString getFileDialogFilter() const;
@@ -68,6 +71,7 @@ public:
 
     QStringList getLanguages() const;
     void setEditorLanguage(ScintillaNext *editor, const QString &languageName) const;
+    void runWorkspaceStartup(const QString &workspacePath);
 
     QString detectLanguage(ScintillaNext *editor) const;
     QString detectLanguageFromExtension(const QString &extension) const;
@@ -102,6 +106,7 @@ private:
     SchemaManager *schemaManager = Q_NULLPTR;
     GitManager *gitManager = Q_NULLPTR;
     SftpManager *sftpManager = Q_NULLPTR;
+    CapabilityTrust::Manager *capabilityTrust = Q_NULLPTR;
 
     LuaState *luaState = Q_NULLPTR;
 
@@ -113,6 +118,7 @@ private:
     QCommandLineParser parser;
 
     QTimer autoSaveTimer; //save automatically the session
+    QSet<QString> workspaceStartupRoots;
 };
 
 #endif // NOTEPADNEXTAPPLICATION_H

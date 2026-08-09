@@ -18,6 +18,7 @@
 
 #include "ScriptConsoleDock.h"
 
+#include "CapabilityTrust.h"
 #include "MainWindow.h"
 #include "NotepadNextApplication.h"
 #include "ScriptConsoleBridge.h"
@@ -124,9 +125,9 @@ JSValue jsOpenFile(JSContext *context, JSValueConst, int argc, JSValueConst *arg
     }
 
     if (ScriptConsoleBridge *bridge = bridgeForContext(context)) {
-        bridge->openFile(path);
+        return JS_NewBool(context, bridge->openFile(path));
     }
-    return JS_UNDEFINED;
+    return JS_NewBool(context, false);
 }
 
 JSValue jsLog(JSContext *context, JSValueConst, int argc, JSValueConst *argv)
@@ -152,7 +153,8 @@ void addBridgeFunction(JSContext *context, JSValue object, const char *name, JSC
 ScriptConsoleDock::ScriptConsoleDock(NotepadNextApplication *app, QWidget *parent)
     : QDockWidget(tr("Scripting Console"), parent)
     , app(app)
-    , bridge(new ScriptConsoleBridge(parent ? qobject_cast<MainWindow *>(parent) : nullptr, this))
+    , bridge(new ScriptConsoleBridge(parent ? qobject_cast<MainWindow *>(parent) : nullptr,
+                                     app ? app->getCapabilityTrust() : nullptr, this))
     , output(new QPlainTextEdit(this))
     , input(new QPlainTextEdit(this))
 {
@@ -299,13 +301,39 @@ void ScriptConsoleDock::runScriptFile()
         return;
     }
 
+    const QString workspaceRoot = CapabilityTrust::Manager::workspaceRootForPath(path);
+    if (app && app->getCapabilityTrust()
+        && !app->getCapabilityTrust()->authorize(this, workspaceRoot,
+                                                 CapabilityTrust::Capability::ScriptFileAccess,
+                                                 QStringLiteral("javascript.file-read"))) {
+        appendOutput(tr("Reading this script file is blocked by workspace trust."));
+        return;
+    }
+
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
+        if (app && app->getCapabilityTrust()) {
+            app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::ScriptFileAccess,
+                                              QStringLiteral("javascript.file-read"), QStringLiteral("failed"));
+        }
         appendOutput(tr("Unable to open %1: %2").arg(path, file.errorString()));
         return;
     }
 
-    executeScript(QString::fromUtf8(file.readAll()), path);
+    const QByteArray source = file.readAll();
+    if (file.error() != QFileDevice::NoError) {
+        if (app && app->getCapabilityTrust()) {
+            app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::ScriptFileAccess,
+                                              QStringLiteral("javascript.file-read"), QStringLiteral("failed"));
+        }
+        appendOutput(tr("Unable to read %1: %2").arg(path, file.errorString()));
+        return;
+    }
+    if (app && app->getCapabilityTrust()) {
+        app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::ScriptFileAccess,
+                                          QStringLiteral("javascript.file-read"), QStringLiteral("read"));
+    }
+    executeScript(QString::fromUtf8(source), path);
 }
 
 void ScriptConsoleDock::clearOutput()
@@ -324,8 +352,26 @@ void ScriptConsoleDock::executeScript(const QString &script, const QString &sour
 {
     appendOutput(QStringLiteral(">>> %1").arg(script.trimmed()));
 
+    const QString workspacePath = sourceName == QStringLiteral("Console")
+        ? (bridge && bridge->currentEditor() && bridge->currentEditor()->isFile()
+               ? bridge->currentEditor()->getFilePath()
+               : QString())
+        : sourceName;
+    const QString workspaceRoot = CapabilityTrust::Manager::workspaceRootForPath(workspacePath);
+    if (app && app->getCapabilityTrust()
+        && !app->getCapabilityTrust()->authorize(this, workspaceRoot,
+                                                 CapabilityTrust::Capability::JavaScriptExecution,
+                                                 QStringLiteral("javascript.execute"))) {
+        appendOutput(tr("JavaScript execution is blocked by workspace trust."));
+        return;
+    }
+
     if (!javascriptContext) {
         appendOutput(tr("The JavaScript engine could not be initialized."));
+        if (app && app->getCapabilityTrust()) {
+            app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::JavaScriptExecution,
+                                              QStringLiteral("javascript.execute"), QStringLiteral("failed"));
+        }
         return;
     }
 
@@ -334,7 +380,17 @@ void ScriptConsoleDock::executeScript(const QString &script, const QString &sour
     executionTimer.start();
     JSValue result = JS_Eval(javascriptContext, source.constData(), static_cast<size_t>(source.size()),
                              fileName.constData(), JS_EVAL_TYPE_GLOBAL);
+    const qint64 elapsed = executionTimer.elapsed();
     executionTimer.invalidate();
+
+    const bool timedOut = elapsed > 2000;
+    if (app && app->getCapabilityTrust()) {
+        app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::JavaScriptExecution,
+                                          QStringLiteral("javascript.execute"),
+                                          JS_IsException(result)
+                                              ? (timedOut ? QStringLiteral("timeout") : QStringLiteral("error"))
+                                              : QStringLiteral("completed"));
+    }
 
     if (JS_IsException(result)) {
         JSValue exception = JS_GetException(javascriptContext);

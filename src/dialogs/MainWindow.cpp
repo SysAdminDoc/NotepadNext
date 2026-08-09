@@ -47,6 +47,7 @@
 #include <QScreen>
 #include <QThread>
 #include <QFontDatabase>
+#include <QMenu>
 #include <QStyleFactory>
 #include <QTextCodec>
 #include <QVBoxLayout>
@@ -118,6 +119,7 @@
 #include "FadingIndicator.h"
 
 #include "ActionUtils.h"
+#include "CapabilityTrust.h"
 
 
 MainWindow::MainWindow(NotepadNextApplication *app) :
@@ -232,6 +234,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     qInfo("setupUi Completed");
 
     defaultDirectoryManager = new DefaultDirectoryManager(this, app->getSettings());
+    setupWorkspaceTrustMenu();
 
     connect(this, &MainWindow::aboutToClose, this, &MainWindow::saveSettings);
 
@@ -594,7 +597,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         editor->grabFocus();
     });
 
-    terminalDock = new TerminalDock(this);
+    terminalDock = new TerminalDock(app->getCapabilityTrust(), this);
     terminalDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, terminalDock);
     QAction *terminalAction = terminalDock->toggleViewAction();
@@ -1283,7 +1286,20 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
         QString command = app->getSettings()->value("App/TerminalCommand", "cmd").toString();
         QString filePath = QDir::toNativeSeparators(currentEditor()->getFileInfo().dir().canonicalPath());
         QStringList arguments = {"/c", "start", "/d", filePath, command};
-        QProcess::startDetached("cmd", arguments);
+        const QString workspaceRoot = CapabilityTrust::Manager::workspaceRootForPath(filePath);
+        if (!app->getCapabilityTrust()->authorize(this, workspaceRoot,
+                                                  CapabilityTrust::Capability::Terminal,
+                                                  QStringLiteral("terminal.external-start"))) {
+            statusBar()->showMessage(tr("External terminal blocked by workspace trust."), 5000);
+            return;
+        }
+        const bool started = QProcess::startDetached("cmd", arguments);
+        app->getCapabilityTrust()->record(workspaceRoot, CapabilityTrust::Capability::Terminal,
+                                          QStringLiteral("terminal.external-start"),
+                                          started ? QStringLiteral("started") : QStringLiteral("failed"));
+        if (!started) {
+            statusBar()->showMessage(tr("Unable to start the external terminal."), 5000);
+        }
     });
 #endif
 
@@ -1295,7 +1311,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     languageInspectorDock->hide();
     addDockWidget(Qt::RightDockWidgetArea, languageInspectorDock);
 
-    LuaConsoleDock *luaConsoleDock = new LuaConsoleDock(app->getLuaState(), this);
+    LuaConsoleDock *luaConsoleDock = new LuaConsoleDock(app->getLuaState(), app->getCapabilityTrust(), this);
     luaConsoleDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, luaConsoleDock);
 
@@ -1876,7 +1892,127 @@ void MainWindow::setFolderAsWorkspacePath(const QString &dir)
         FolderAsWorkspaceDock *fawDock = findChild<FolderAsWorkspaceDock *>();
         fawDock->setRootPath(dir);
         fawDock->setVisible(true);
+        refreshWorkspaceTrustMenu();
+        QTimer::singleShot(0, this, [this, dir]() {
+            app->runWorkspaceStartup(dir);
+        });
     }
+}
+
+QString MainWindow::currentWorkspaceRoot() const
+{
+    QString path;
+    if (ScintillaNext *editor = currentEditor(); editor && editor->isFile()) {
+        path = editor->getFilePath();
+    }
+    else if (FolderAsWorkspaceDock *fawDock = findChild<FolderAsWorkspaceDock *>();
+             fawDock && !fawDock->rootPath().isEmpty()) {
+        path = fawDock->rootPath();
+    }
+    else if (defaultDirectoryManager) {
+        path = defaultDirectoryManager->getDefaultDirectory();
+    }
+
+    return CapabilityTrust::Manager::workspaceRootForPath(path);
+}
+
+void MainWindow::setupWorkspaceTrustMenu()
+{
+    workspaceTrustMenu = ui->menuSettings->addMenu(tr("Workspace Trust"));
+    workspaceTrustMenu->setObjectName(QStringLiteral("menuWorkspaceTrust"));
+    workspaceTrustMenu->setAccessibleName(tr("Workspace Trust"));
+    workspaceTrustMenu->setToolTip(tr("Review and revoke script, terminal, and workspace startup capabilities."));
+
+    if (app->getCapabilityTrust()) {
+        connect(app->getCapabilityTrust(), &CapabilityTrust::Manager::capabilityChanged,
+                this, [this](const QString &, CapabilityTrust::Capability) {
+            refreshWorkspaceTrustMenu();
+        });
+    }
+    connect(this, &MainWindow::editorActivated, this, [this](ScintillaNext *) {
+        refreshWorkspaceTrustMenu();
+    });
+    refreshWorkspaceTrustMenu();
+}
+
+void MainWindow::refreshWorkspaceTrustMenu()
+{
+    if (!workspaceTrustMenu || !app->getCapabilityTrust()) {
+        return;
+    }
+
+    workspaceTrustMenu->clear();
+    const QString workspaceRoot = currentWorkspaceRoot();
+    const QString workspaceId = CapabilityTrust::Manager::workspaceId(workspaceRoot);
+    auto *workspaceInfo = workspaceTrustMenu->addAction(
+        tr("Workspace: %1").arg(workspaceRoot));
+    workspaceInfo->setEnabled(false);
+    workspaceInfo->setToolTip(tr("Capability grants are scoped to this workspace."));
+    auto *identityInfo = workspaceTrustMenu->addAction(
+        tr("Workspace ID: %1").arg(workspaceId.left(16)));
+    identityInfo->setEnabled(false);
+    workspaceTrustMenu->addSeparator();
+
+    const QVector<QPair<CapabilityTrust::Capability, QString>> capabilities = {
+        {CapabilityTrust::Capability::JavaScriptExecution, tr("JavaScript execution")},
+        {CapabilityTrust::Capability::ScriptFileAccess, tr("JavaScript script file access")},
+        {CapabilityTrust::Capability::ScriptDocumentEdit, tr("JavaScript document editing")},
+        {CapabilityTrust::Capability::ScriptDocumentSave, tr("JavaScript document saving")},
+        {CapabilityTrust::Capability::ScriptDocumentOpen, tr("JavaScript document opening")},
+        {CapabilityTrust::Capability::Terminal, tr("Integrated terminal")},
+        {CapabilityTrust::Capability::LuaConsole, tr("Lua console")},
+        {CapabilityTrust::Capability::TrustedStartup, tr("Workspace startup Lua")},
+    };
+
+    bool hasGrant = false;
+    for (const auto &capability : capabilities) {
+        const bool granted = app->getCapabilityTrust()->isGranted(workspaceRoot, capability.first);
+        hasGrant = hasGrant || granted;
+        auto *state = workspaceTrustMenu->addAction(
+            tr("%1: %2").arg(capability.second, granted ? tr("Allowed") : tr("Denied")));
+        state->setEnabled(false);
+
+        if (granted) {
+            auto *revoke = workspaceTrustMenu->addAction(tr("Revoke %1").arg(capability.second));
+            revoke->setStatusTip(tr("Revoke this capability for the current workspace."));
+            connect(revoke, &QAction::triggered, this, [this, workspaceRoot, capability]() {
+                app->getCapabilityTrust()->revoke(workspaceRoot, capability.first);
+                statusBar()->showMessage(tr("Revoked %1").arg(capability.second), 3000);
+            });
+        }
+        else {
+            auto *allowOnce = workspaceTrustMenu->addAction(
+                tr("Allow %1 for this session").arg(capability.second));
+            allowOnce->setStatusTip(tr("Allow until Notepad Next exits."));
+            connect(allowOnce, &QAction::triggered, this, [this, workspaceRoot, capability]() {
+                app->getCapabilityTrust()->grant(workspaceRoot, capability.first, false);
+                statusBar()->showMessage(tr("Allowed %1 for this session").arg(capability.second), 3000);
+            });
+
+            auto *allowAlways = workspaceTrustMenu->addAction(
+                tr("Always allow %1").arg(capability.second));
+            allowAlways->setStatusTip(tr("Persist this grant for the current workspace."));
+            connect(allowAlways, &QAction::triggered, this, [this, workspaceRoot, capability]() {
+                app->getCapabilityTrust()->grant(workspaceRoot, capability.first, true);
+                statusBar()->showMessage(tr("Always allowed %1").arg(capability.second), 3000);
+            });
+        }
+        workspaceTrustMenu->addSeparator();
+    }
+
+    if (hasGrant) {
+        auto *revokeAll = workspaceTrustMenu->addAction(tr("Revoke all workspace grants"));
+        revokeAll->setStatusTip(tr("Revoke every script, terminal, and startup grant for this workspace."));
+        connect(revokeAll, &QAction::triggered, this, [this, workspaceRoot]() {
+            app->getCapabilityTrust()->revokeAll(workspaceRoot);
+            statusBar()->showMessage(tr("Revoked all workspace grants"), 3000);
+        });
+        workspaceTrustMenu->addSeparator();
+    }
+
+    auto *pluginInfo = workspaceTrustMenu->addAction(
+        tr("Native plugin trust remains under Plugins > Plugin Trust."));
+    pluginInfo->setEnabled(false);
 }
 
 void MainWindow::reloadFile()

@@ -33,6 +33,7 @@
 #include "GitManager.h"
 #include "SftpManager.h"
 #include "PortableMode.h"
+#include "CapabilityTrust.h"
 
 #include "LuaState.h"
 #include "lua.hpp"
@@ -101,6 +102,7 @@ bool NotepadNextApplication::init()
 #endif
 
     settings = new ApplicationSettings(this);
+    capabilityTrust = new CapabilityTrust::Manager(settings, this);
 
     if (parser.isSet("reset-settings")) {
         QFileInfo original(settings->fileName());
@@ -476,6 +478,38 @@ void NotepadNextApplication::openFiles(const QStringList &files)
 void NotepadNextApplication::loadSettings()
 {
     recentFilesListManager->setFileList(getSettings()->value("App/RecentFilesList").toStringList());
+}
+
+void NotepadNextApplication::runWorkspaceStartup(const QString &workspacePath)
+{
+    const QString workspaceRoot = CapabilityTrust::Manager::workspaceRootForPath(workspacePath);
+    if (workspaceRoot.isEmpty() || workspaceStartupRoots.contains(workspaceRoot)) {
+        return;
+    }
+    workspaceStartupRoots.insert(workspaceRoot);
+
+    const QString startupFile = QDir(workspaceRoot).filePath(QStringLiteral(".notepadnext/startup.lua"));
+    if (!QFileInfo(startupFile).isFile()) {
+        return;
+    }
+
+    if (!capabilityTrust->authorize(window, workspaceRoot,
+                                    CapabilityTrust::Capability::TrustedStartup,
+                                    QStringLiteral("workspace.startup"))) {
+        qWarning("Workspace startup was denied");
+        return;
+    }
+
+    QString error;
+    if (luaState->executeFileChecked(startupFile, &error)) {
+        capabilityTrust->record(workspaceRoot, CapabilityTrust::Capability::TrustedStartup,
+                                QStringLiteral("workspace.startup"), QStringLiteral("completed"));
+        return;
+    }
+
+    capabilityTrust->record(workspaceRoot, CapabilityTrust::Capability::TrustedStartup,
+                            QStringLiteral("workspace.startup"), QStringLiteral("failed"));
+    qWarning("Workspace startup failed: %s", qUtf8Printable(error));
 }
 
 void NotepadNextApplication::saveSettings()

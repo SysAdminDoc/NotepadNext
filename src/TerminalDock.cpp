@@ -10,6 +10,7 @@
 
 #include "TerminalDock.h"
 
+#include "CapabilityTrust.h"
 #include "TerminalProcess.h"
 
 #include <QDir>
@@ -25,8 +26,14 @@
 #include <utility>
 
 TerminalDock::TerminalDock(QWidget *parent)
+    : TerminalDock(nullptr, parent)
+{
+}
+
+TerminalDock::TerminalDock(CapabilityTrust::Manager *trustManager, QWidget *parent)
     : QDockWidget(parent),
-      process(new TerminalProcess(this))
+      process(new TerminalProcess(this)),
+      trustManager(trustManager)
 {
     setObjectName(QStringLiteral("terminalDock"));
     setWindowTitle(tr("Terminal"));
@@ -154,7 +161,20 @@ void TerminalDock::startProcess()
         return;
     }
 
+    const QString workspaceRoot = CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory);
+    if (trustManager && !trustManager->authorize(this, workspaceRoot,
+                                                 CapabilityTrust::Capability::Terminal,
+                                                 QStringLiteral("terminal.start"))) {
+        pendingCommand.clear();
+        appendOutput(tr("[Notepad Next] Terminal blocked by workspace trust.\n"));
+        return;
+    }
+
     if (!process->start(requestedWorkingDirectory)) {
+        if (trustManager) {
+            trustManager->record(workspaceRoot, CapabilityTrust::Capability::Terminal,
+                                 QStringLiteral("terminal.start"), QStringLiteral("failed"));
+        }
         handleError(process->errorString());
     }
 }
@@ -193,9 +213,19 @@ void TerminalDock::executeCommand(const QString &command)
     }
 
     if (!process->sendCommand(command)) {
+        if (trustManager) {
+            trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                                 CapabilityTrust::Capability::Terminal,
+                                 QStringLiteral("terminal.command"), QStringLiteral("failed"));
+        }
         handleError(process->errorString().isEmpty()
                         ? tr("Unable to send the command to the terminal.")
                         : process->errorString());
+    }
+    else if (trustManager) {
+        trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                             CapabilityTrust::Capability::Terminal,
+                             QStringLiteral("terminal.command"), QStringLiteral("sent"));
     }
 }
 
@@ -221,12 +251,27 @@ void TerminalDock::updateWorkingDirectoryLabel()
 void TerminalDock::handleStarted()
 {
     appendOutput(tr("[Notepad Next] Started shell in %1\n").arg(process->workingDirectory()));
+    if (trustManager) {
+        trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                             CapabilityTrust::Capability::Terminal,
+                             QStringLiteral("terminal.start"), QStringLiteral("started"));
+    }
     if (!pendingCommand.isEmpty()) {
         const QString command = std::exchange(pendingCommand, QString());
         if (!process->sendCommand(command)) {
+            if (trustManager) {
+                trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                                     CapabilityTrust::Capability::Terminal,
+                                     QStringLiteral("terminal.command"), QStringLiteral("failed"));
+            }
             handleError(process->errorString().isEmpty()
                             ? tr("Unable to send the command to the terminal.")
                             : process->errorString());
+        }
+        else if (trustManager) {
+            trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                                 CapabilityTrust::Capability::Terminal,
+                                 QStringLiteral("terminal.command"), QStringLiteral("sent"));
         }
     }
 }
@@ -238,11 +283,24 @@ void TerminalDock::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
         ? tr("[Notepad Next] Shell exited with code %1.\n").arg(exitCode)
         : tr("[Notepad Next] Shell terminated unexpectedly.\n");
     appendOutput(status);
+    if (trustManager) {
+        trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                             CapabilityTrust::Capability::Terminal,
+                             QStringLiteral("terminal.finish"),
+                             exitStatus == QProcess::NormalExit
+                                 ? QStringLiteral("exit-%1").arg(exitCode)
+                                 : QStringLiteral("crash"));
+    }
 }
 
 void TerminalDock::handleError(const QString &error)
 {
     if (!error.isEmpty()) {
         appendOutput(tr("[Notepad Next] %1\n").arg(error));
+        if (trustManager) {
+            trustManager->record(CapabilityTrust::Manager::workspaceRootForPath(requestedWorkingDirectory),
+                                 CapabilityTrust::Capability::Terminal,
+                                 QStringLiteral("terminal.error"), QStringLiteral("error"));
+        }
     }
 }

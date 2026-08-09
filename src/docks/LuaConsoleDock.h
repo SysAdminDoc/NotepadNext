@@ -24,6 +24,7 @@
 
 class ScintillaNext;
 class LuaState;
+namespace CapabilityTrust { class Manager; }
 
 namespace Ui {
 class LuaConsoleDock;
@@ -34,7 +35,7 @@ class LuaConsoleDock : public QDockWidget
     Q_OBJECT
 
 public:
-    explicit LuaConsoleDock(LuaState *l, QWidget *parent = 0);
+    explicit LuaConsoleDock(LuaState *l, CapabilityTrust::Manager *trustManager, QWidget *parent = 0);
     ~LuaConsoleDock();
 
     void writeToOutput(const char *s);
@@ -53,10 +54,13 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event);
 
 private:
+    QString workspaceRoot() const;
+
     Ui::LuaConsoleDock *ui;
 
     ScintillaNext *output;
     ScintillaNext *input;
+    CapabilityTrust::Manager *trustManager = Q_NULLPTR;
 
     QStringList history;
     int currentHistoryIndex = 0;

@@ -29,6 +29,20 @@
 
 #include <QUuid>
 
+#ifdef NOTEPADNEXT_LIFECYCLE_TRACE
+#include <QDir>
+#include <QFile>
+
+static void lifecycleDockTrace(const char *message)
+{
+    QFile trace(QDir::temp().filePath(QStringLiteral("NotepadNextLifecycleTrace.txt")));
+    if (trace.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        trace.write(message);
+        trace.write("\n");
+    }
+}
+#endif
+
 
 class DockedEditorComponentsFactory : public ads::CDockComponentsFactory
 {
@@ -69,12 +83,29 @@ DockedEditor::DockedEditor(QWidget *parent) : QObject(parent)
 
     connect(dockManager, &ads::CDockManager::focusedDockWidgetChanged, this, [=](ads::CDockWidget* old, ads::CDockWidget* now) {
         Q_UNUSED(old)
+        lifecycleDockTrace(now ? (now->widget() ? "dock:focus-widget" : "dock:focus-no-widget") : "dock:focus-none");
+
+        if (!now || now->isClosed()) {
+            lifecycleDockTrace("dock:clear-none");
+            currentEditor = nullptr;
+            latestDockArea = nullptr;
+            return;
+        }
 
         ScintillaNext *editor = qobject_cast<ScintillaNext *>(now->widget());
+        if (!editor) {
+            lifecycleDockTrace("dock:clear-no-editor");
+            currentEditor = nullptr;
+            latestDockArea = nullptr;
+            return;
+        }
 
         currentEditor = editor;
+        lifecycleDockTrace("dock:before-focus");
         editor->grabFocus();
+        lifecycleDockTrace("dock:after-focus");
         emit editorActivated(editor);
+        lifecycleDockTrace("dock:after-activate");
     });
 
     connect(dockManager, &ads::CDockManager::dockAreaCreated, this, [=](ads::CDockAreaWidget* DockArea) {
@@ -105,8 +136,12 @@ int DockedEditor::count() const
 {
     int total = 0;
 
-    for (int i = 0; i < dockManager->dockAreaCount(); ++i)
-        total += dockManager->dockArea(i)->dockWidgetsCount();
+    for (ads::CDockWidget *dockWidget : dockManager->dockWidgetsMap()) {
+        if (dockWidget && !dockWidget->isClosed() &&
+            qobject_cast<ScintillaNext *>(dockWidget->widget())) {
+            ++total;
+        }
+    }
 
     return total;
 }
@@ -115,10 +150,18 @@ QVector<ScintillaNext *> DockedEditor::editors() const
 {
     QVector<ScintillaNext *> editors;
 
-    // For each area, for each widget, append it to our list
-    for (const ads::CDockAreaWidget* areaWidget : dockManager->openedDockAreas()) {
-        for (const ads::CDockWidget* dockWidget : areaWidget->dockWidgets()) {
-            editors.append(qobject_cast<ScintillaNext *>(dockWidget->widget()));
+    // Use the manager's registered widgets rather than only opened areas.  A
+    // dock can be between area transitions while its editor is still alive;
+    // omitting it here desynchronizes the editor manager and session/close
+    // workflows.
+    for (ads::CDockWidget *dockWidget : dockManager->dockWidgetsMap()) {
+        if (!dockWidget || dockWidget->isClosed()) {
+            continue;
+        }
+
+        if (ScintillaNext *editor = qobject_cast<ScintillaNext *>(dockWidget->widget());
+            editor) {
+            editors.append(editor);
         }
     }
 
@@ -147,7 +190,19 @@ void DockedEditor::dockWidgetCloseRequested()
 
 ads::CDockAreaWidget *DockedEditor::currentDockArea() const
 {
-    return dockManager->focusedDockWidget() ? dockManager->focusedDockWidget()->dockAreaWidget() : latestDockArea;
+    if (!dockManager) {
+        return nullptr;
+    }
+
+    if (ads::CDockWidget *focused = dockManager->focusedDockWidget();
+        focused && !focused->isClosed()) {
+        if (ads::CDockAreaWidget *area = focused->dockAreaWidget(); area) {
+            return area;
+        }
+    }
+
+    const auto areas = dockManager->openedDockAreas();
+    return areas.isEmpty() ? nullptr : areas.constLast();
 }
 
 void DockedEditor::addEditor(ScintillaNext *editor)
@@ -199,7 +254,12 @@ void DockedEditor::addEditor(ScintillaNext *editor)
     }
 
     connect(editor, &ScintillaNext::closed, dockWidget, &ads::CDockWidget::closeDockWidget);
-    connect(editor, &ScintillaNext::closed, this, [=]() { emit editorClosed(editor); });
+    connect(editor, &ScintillaNext::closed, this, [this, editor]() {
+        if (currentEditor == editor) {
+            currentEditor = nullptr;
+        }
+        emit editorClosed(editor);
+    });
     connect(editor, &ScintillaNext::renamed, this, [=]() { editorRenamed(editor); });
 
     connect(dockWidget, &ads::CDockWidget::closeRequested, this, &DockedEditor::dockWidgetCloseRequested);

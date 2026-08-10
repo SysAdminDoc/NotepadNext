@@ -51,6 +51,10 @@
 #include <QStyleFactory>
 #include <QTextCodec>
 #include <QVBoxLayout>
+#ifdef NOTEPADNEXT_LIFECYCLE_TRACE
+#include <QDir>
+#include <QFile>
+#endif
 
 #ifdef Q_OS_WIN
 #include <QSimpleUpdater.h>
@@ -121,17 +125,39 @@
 #include "ActionUtils.h"
 #include "CapabilityTrust.h"
 
+#ifdef NOTEPADNEXT_LIFECYCLE_TRACE
+static void lifecycleWindowTrace(const char *message)
+{
+    QFile trace(QDir::temp().filePath(QStringLiteral("NotepadNextLifecycleTrace.txt")));
+    if (trace.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        trace.write(message);
+        trace.write("\n");
+    }
+}
+#else
+static void lifecycleWindowTrace(const char *)
+{
+}
+#endif
+
+static void lifecycleWindowTraceText(const QString &message)
+{
+    lifecycleWindowTrace(message.toUtf8().constData());
+}
+
 
 MainWindow::MainWindow(NotepadNextApplication *app) :
     ui(new Ui::MainWindow),
     app(app),
     zoomEventWatcher(new ZoomEventWatcher(this))
 {
+    lifecycleWindowTrace("window:begin");
     qInfo(Q_FUNC_INFO);
 
     setAttribute(Qt::WA_DeleteOnClose);
 
     ui->setupUi(this);
+    lifecycleWindowTrace("window:ui");
 
     if (app->getLspManager()) {
         connect(app->getLspManager(), &LspManager::statusChanged, this,
@@ -234,18 +260,22 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     qInfo("setupUi Completed");
 
     defaultDirectoryManager = new DefaultDirectoryManager(this, app->getSettings());
+    lifecycleWindowTrace("window:default");
     setupWorkspaceTrustMenu();
+    lifecycleWindowTrace("window:trust");
 
     connect(this, &MainWindow::aboutToClose, this, &MainWindow::saveSettings);
 
     // Create and set up the connections to the docked editor
     dockedEditor = new DockedEditor(this);
+    lifecycleWindowTrace("window:docked");
     connect(dockedEditor, &DockedEditor::editorCloseRequested, this, &MainWindow::closeFile);
     connect(dockedEditor, &DockedEditor::editorActivated, this, &MainWindow::activateEditor);
     connect(dockedEditor, &DockedEditor::contextMenuRequestedForEditor, this, &MainWindow::tabBarRightClicked);
     connect(dockedEditor, &DockedEditor::titleBarDoubleClicked, this, &MainWindow::newFile);
 
     markdownPreview = new MarkdownPreviewDock(this);
+    lifecycleWindowTrace("window:markdown");
     markdownPreview->hide();
     addDockWidget(Qt::RightDockWidgetArea, markdownPreview);
     ui->menuView->addAction(markdownPreview->toggleViewAction());
@@ -598,6 +628,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     terminalDock = new TerminalDock(app->getCapabilityTrust(), this);
+    lifecycleWindowTrace("window:terminal");
     terminalDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, terminalDock);
     QAction *terminalAction = terminalDock->toggleViewAction();
@@ -614,6 +645,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     hexEditorDock = new HexEditorDock(this, this);
+    lifecycleWindowTrace("window:hex");
     hexEditorDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, hexEditorDock);
     QAction *hexEditorAction = hexEditorDock->toggleViewAction();
@@ -636,6 +668,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     connect(openHexEditorAction, &QAction::triggered, hexEditorDock, &HexEditorDock::openCurrentFile);
 
     snippetManagerDock = new SnippetManagerDock(this, this);
+    lifecycleWindowTrace("window:snippet");
     snippetManagerDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, snippetManagerDock);
     QAction *snippetManagerAction = snippetManagerDock->toggleViewAction();
@@ -656,6 +689,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     scriptConsoleDock = new ScriptConsoleDock(app, this);
+    lifecycleWindowTrace("window:script");
     scriptConsoleDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, scriptConsoleDock);
     QAction *scriptConsoleAction = scriptConsoleDock->toggleViewAction();
@@ -675,6 +709,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     findInFilesDock = new FindInFilesDock(this);
+    lifecycleWindowTrace("window:find-files");
     findInFilesDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, findInFilesDock);
     ui->actionFindInFiles->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+F")));
@@ -716,6 +751,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     });
 
     regexBuilderDock = new RegexBuilderDock(this, this);
+    lifecycleWindowTrace("window:regex");
     regexBuilderDock->hide();
     addDockWidget(Qt::BottomDockWidgetArea, regexBuilderDock);
     QAction *regexBuilderAction = regexBuilderDock->toggleViewAction();
@@ -1306,6 +1342,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     EditorInspectorDock *editorInspectorDock = new EditorInspectorDock(this);
     editorInspectorDock->hide();
     addDockWidget(Qt::RightDockWidgetArea, editorInspectorDock);
+    lifecycleWindowTrace("window:inspector");
 
     LanguageInspectorDock *languageInspectorDock = new LanguageInspectorDock(this);
     languageInspectorDock->hide();
@@ -1336,6 +1373,7 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     fileListDock->hide();
     addDockWidget(Qt::LeftDockWidgetArea, fileListDock);
     ui->menuView->addAction(fileListDock->toggleViewAction());
+    lifecycleWindowTrace("window:file-list");
 
     connect(app->getSettings(), &ApplicationSettings::showMenuBarChanged, this, [this](bool showMenuBar) {
         // Don't 'hide' it, else the actions won't be enabled
@@ -1351,12 +1389,16 @@ MainWindow::MainWindow(NotepadNextApplication *app) :
     ui->statusBar->setVisible(app->getSettings()->showStatusBar());
 
     setupLanguageMenu();
+    lifecycleWindowTrace("window:language");
 
     applyStyleSheet();
+    lifecycleWindowTrace("window:stylesheet");
 
     restoreSettings();
+    lifecycleWindowTrace("window:settings");
 
     initUpdateCheck();
+    lifecycleWindowTrace("window:updates");
 }
 
 MainWindow::~MainWindow()
@@ -1674,11 +1716,16 @@ void MainWindow::updateEncodingBasedUi(ScintillaNext *editor)
     }
 
     QAction *matchingAction = nullptr;
+    int actionIndex = 0;
     for (QAction *action : encodingActionGroup->actions()) {
+        lifecycleWindowTraceText(QStringLiteral("encoding:before:%1:%2")
+                                      .arg(actionIndex++)
+                                      .arg(action ? action->text() : QStringLiteral("null")));
         const QVariantMap data = action->data().toMap();
         const bool matches = data.value(QStringLiteral("codec")).toByteArray().compare(editor->encoding(), Qt::CaseInsensitive) == 0
             && data.value(QStringLiteral("bom")).toInt() == static_cast<int>(editor->bom());
         action->setChecked(matches);
+        lifecycleWindowTrace("encoding:after");
         if (matches) {
             matchingAction = action;
         }
@@ -1696,12 +1743,12 @@ void MainWindow::updateEncodingBasedUi(ScintillaNext *editor)
 
 ScintillaNext *MainWindow::currentEditor() const
 {
-    return dockedEditor->getCurrentEditor();
+    return dockedEditor ? dockedEditor->getCurrentEditor() : nullptr;
 }
 
 int MainWindow::editorCount() const
 {
-    return dockedEditor->count();
+    return dockedEditor ? dockedEditor->count() : 0;
 }
 
 QVector<ScintillaNext *> MainWindow::editors() const
@@ -1901,8 +1948,11 @@ void MainWindow::setFolderAsWorkspacePath(const QString &dir)
 
 QString MainWindow::currentWorkspaceRoot() const
 {
+    lifecycleWindowTrace("workspace:begin");
     QString path;
-    if (ScintillaNext *editor = currentEditor(); editor && editor->isFile()) {
+    ScintillaNext *editor = currentEditor();
+    lifecycleWindowTrace(editor ? "workspace:editor" : "workspace:no-editor");
+    if (editor && editor->isFile()) {
         path = editor->getFilePath();
     }
     else if (FolderAsWorkspaceDock *fawDock = findChild<FolderAsWorkspaceDock *>();
@@ -1910,15 +1960,19 @@ QString MainWindow::currentWorkspaceRoot() const
         path = fawDock->rootPath();
     }
     else if (defaultDirectoryManager) {
+        lifecycleWindowTrace("workspace:default");
         path = defaultDirectoryManager->getDefaultDirectory();
     }
 
+    lifecycleWindowTrace("workspace:before-id");
     return CapabilityTrust::Manager::workspaceRootForPath(path);
 }
 
 void MainWindow::setupWorkspaceTrustMenu()
 {
+    lifecycleWindowTrace("trust:begin");
     workspaceTrustMenu = ui->menuSettings->addMenu(tr("Workspace Trust"));
+    lifecycleWindowTrace("trust:menu");
     workspaceTrustMenu->setObjectName(QStringLiteral("menuWorkspaceTrust"));
     workspaceTrustMenu->setAccessibleName(tr("Workspace Trust"));
     workspaceTrustMenu->setToolTip(tr("Review and revoke script, terminal, and workspace startup capabilities."));
@@ -1932,18 +1986,26 @@ void MainWindow::setupWorkspaceTrustMenu()
     connect(this, &MainWindow::editorActivated, this, [this](ScintillaNext *) {
         refreshWorkspaceTrustMenu();
     });
+    lifecycleWindowTrace("trust:connected");
     refreshWorkspaceTrustMenu();
+    lifecycleWindowTrace("trust:done");
 }
 
 void MainWindow::refreshWorkspaceTrustMenu()
 {
+    lifecycleWindowTrace("trust-refresh:begin");
     if (!workspaceTrustMenu || !app->getCapabilityTrust()) {
+        lifecycleWindowTrace("trust-refresh:empty");
         return;
     }
 
+    lifecycleWindowTrace("trust-refresh:before-clear");
     workspaceTrustMenu->clear();
+    lifecycleWindowTrace("trust-refresh:after-clear");
     const QString workspaceRoot = currentWorkspaceRoot();
+    lifecycleWindowTrace("trust-refresh:root");
     const QString workspaceId = CapabilityTrust::Manager::workspaceId(workspaceRoot);
+    lifecycleWindowTrace("trust-refresh:id");
     auto *workspaceInfo = workspaceTrustMenu->addAction(
         tr("Workspace: %1").arg(workspaceRoot));
     workspaceInfo->setEnabled(false);
@@ -2577,14 +2639,23 @@ void MainWindow::updateGui(ScintillaNext *editor)
 {
     qInfo(Q_FUNC_INFO);
 
+    lifecycleWindowTrace("gui:file-before");
     updateFileStatusBasedUi(editor);
+    lifecycleWindowTrace("gui:file-after");
     updateSaveStatusBasedUi(editor);
+    lifecycleWindowTrace("gui:save-after");
     updateEOLBasedUi(editor);
+    lifecycleWindowTrace("gui:eol-after");
     updateEncodingBasedUi(editor);
+    lifecycleWindowTrace("gui:encoding-after");
     updateEditorPositionBasedUi();
+    lifecycleWindowTrace("gui:position-after");
     updateSelectionBasedUi(editor);
+    lifecycleWindowTrace("gui:selection-after");
     updateContentBasedUi(editor);
+    lifecycleWindowTrace("gui:content-after");
     updateLanguageBasedUi(editor);
+    lifecycleWindowTrace("gui:language-after");
 
     if (stageCurrentFileAction && unstageCurrentFileAction) {
         const GitRepository::FileState state = app->getGitManager()->stateForEditor(editor);
@@ -2593,6 +2664,7 @@ void MainWindow::updateGui(ScintillaNext *editor)
         stageCurrentFileAction->setEnabled(canUseGit && state.unstaged);
         unstageCurrentFileAction->setEnabled(canUseGit && state.staged);
     }
+    lifecycleWindowTrace("gui:done");
 }
 
 void MainWindow::updateDocumentBasedUi(Scintilla::Update updated)
@@ -2653,10 +2725,14 @@ void MainWindow::activateEditor(ScintillaNext *editor)
 {
     qInfo(Q_FUNC_INFO);
 
+    lifecycleWindowTrace("activate:begin");
     checkFileForModification(editor);
+    lifecycleWindowTrace("activate:checked");
     updateGui(editor);
+    lifecycleWindowTrace("activate:gui-done");
 
     emit editorActivated(editor);
+    lifecycleWindowTrace("activate:done");
 }
 
 void MainWindow::applyStyleSheet()

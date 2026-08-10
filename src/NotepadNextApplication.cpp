@@ -48,12 +48,33 @@
 #include <QCommandLineParser>
 
 #include <QDirIterator>
+#ifdef NOTEPADNEXT_LIFECYCLE_TRACE
+#include <QFile>
+#endif
 
 #ifdef Q_OS_WIN
 #include <Windows.h>
 #endif
 
 const SingleApplication::Options opts = SingleApplication::ExcludeAppPath | SingleApplication::ExcludeAppVersion | SingleApplication::SecondaryNotification;
+
+#ifdef NOTEPADNEXT_LIFECYCLE_TRACE
+static void lifecycleTrace(const char *message)
+{
+    QFile trace(QDir::temp().filePath(QStringLiteral("NotepadNextLifecycleTrace.txt")));
+    const QIODevice::OpenMode mode = qstrcmp(message, "app:begin") == 0
+        ? QIODevice::WriteOnly
+        : QIODevice::WriteOnly | QIODevice::Append;
+    if (trace.open(mode)) {
+        trace.write(message);
+        trace.write("\n");
+    }
+}
+#else
+static void lifecycleTrace(const char *)
+{
+}
+#endif
 
 void parseCommandLine(QCommandLineParser &parser, const QStringList &args)
 {
@@ -95,6 +116,7 @@ NotepadNextApplication::NotepadNextApplication(int &argc, char **argv)
 
 bool NotepadNextApplication::init()
 {
+    lifecycleTrace("app:begin");
     qInfo(Q_FUNC_INFO);
 
 #ifndef Q_OS_MACOS
@@ -141,6 +163,7 @@ bool NotepadNextApplication::init()
     lspManager = new LspManager(editorManager, this);
     schemaManager = new SchemaManager(editorManager, this);
     gitManager = new GitManager(editorManager, this);
+    lifecycleTrace("app:managers");
 
     connect(editorManager, &EditorManager::editorCreated, recentFilesListManager, [this](ScintillaNext *editor) {
         if (editor->isFile() && !sftpManager->isRemote(editor)) {
@@ -168,8 +191,10 @@ bool NotepadNextApplication::init()
 
     luaState->executeFile(":/scripts/init.lua");
     LuaExtension::Instance().Initialise(luaState->L, Q_NULLPTR);
+    lifecycleTrace("app:extensions");
 
     createNewWindow();
+    lifecycleTrace("app:window");
     connect(editorManager, &EditorManager::editorCreated, window, &MainWindow::addEditor);
 
     // If the application is activated (e.g. user switching to another program and them back) the focus

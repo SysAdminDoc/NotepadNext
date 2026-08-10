@@ -66,6 +66,8 @@ __cmake_systeminformation
 
 .cpm-cache/
 CLAUDE.md
+CODEX_CHANGELOG.md
+.claude/
 
 # Markdown files local-only (except README)
 *.md

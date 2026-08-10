@@ -528,3 +528,101 @@ target_link_libraries(NotepadNextDirectoryDropScannerTests
 )
 
 add_test(NAME NotepadNextDirectoryDropScannerTests COMMAND NotepadNextDirectoryDropScannerTests)
+
+# Build the real application sources into an offscreen lifecycle harness.  The
+# application target is deliberately reused as the source of truth so the
+# harness exercises the same MainWindow/session/plugin/LSP wiring as a release
+# build instead of a reduced test-only substitute.
+get_target_property(NOTEPADNEXT_LIFECYCLE_SOURCES NotepadNext SOURCES)
+set(NOTEPADNEXT_LIFECYCLE_SOURCE_FILES)
+foreach(source IN LISTS NOTEPADNEXT_LIFECYCLE_SOURCES)
+    if(source MATCHES "^\\$<")
+        continue()
+    endif()
+
+    get_filename_component(source_name "${source}" NAME)
+    get_filename_component(source_extension "${source}" EXT)
+    if(source_name STREQUAL "main.cpp" OR source_name STREQUAL "version.rc")
+        continue()
+    endif()
+    if(NOT source_extension MATCHES "^\\.(c|cc|cpp|h|hpp|ui|qrc)$")
+        continue()
+    endif()
+
+    if(IS_ABSOLUTE "${source}")
+        list(APPEND NOTEPADNEXT_LIFECYCLE_SOURCE_FILES "${source}")
+    else()
+        list(APPEND NOTEPADNEXT_LIFECYCLE_SOURCE_FILES "${CMAKE_SOURCE_DIR}/src/${source}")
+    endif()
+endforeach()
+
+qt_add_executable(NotepadNextLifecycleTests
+    LifecycleRegressionTests.cpp
+    ${NOTEPADNEXT_LIFECYCLE_SOURCE_FILES}
+)
+
+target_include_directories(NotepadNextLifecycleTests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/decorators
+        ${CMAKE_SOURCE_DIR}/src/dialogs
+        ${CMAKE_SOURCE_DIR}/src/docks
+        ${CMAKE_SOURCE_DIR}/src/widgets
+        ${CPM_PACKAGE_libgit2_SOURCE_DIR}/include
+        ${CPM_PACKAGE_libssh2_SOURCE_DIR}/include
+        ${CPM_PACKAGE_quickjs_SOURCE_DIR}
+        ${CPM_PACKAGE_tomlplusplus_SOURCE_DIR}/include
+)
+
+target_link_libraries(NotepadNextLifecycleTests
+    PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Network
+        Qt6::PrintSupport
+        Qt6::Test
+        qtadvanceddocking-qt6
+        QSimpleUpdater
+        SingleApplication::SingleApplication
+        editorconfig-core-qt
+        lua
+        lexilla
+        scintilla
+        uchardet
+        yaml-cpp::yaml-cpp
+        libgit2package
+        libssh2::libssh2
+        qjs
+)
+
+target_compile_definitions(NotepadNextLifecycleTests
+    PRIVATE
+        ADS_STATIC
+        QSIMPLEUPDATER_STATIC
+        QAPPLICATION_CLASS=QApplication
+        APP_VERSION="${PROJECT_VERSION}"
+        APP_COPYRIGHT="${APP_COPYRIGHT}"
+        APP_DISTRIBUTION="${APP_DISTRIBUTION}"
+        NOTEPADNEXT_LIFECYCLE_TRACE
+)
+
+if (NOTEPADNEXT_HAS_WEBENGINE)
+    target_compile_definitions(NotepadNextLifecycleTests PRIVATE NOTEPADNEXT_HAS_WEBENGINE)
+    target_link_libraries(NotepadNextLifecycleTests PRIVATE Qt6::WebEngineWidgets)
+endif()
+
+if(WIN32)
+    target_link_libraries(NotepadNextLifecycleTests PRIVATE dwmapi)
+endif()
+
+if(NOTEPADNEXT_ENABLE_TREE_SITTER)
+    target_compile_definitions(NotepadNextLifecycleTests PRIVATE NOTEPADNEXT_WITH_TREE_SITTER)
+    target_link_libraries(NotepadNextLifecycleTests PRIVATE tree-sitter-json)
+endif()
+
+add_test(NAME NotepadNextLifecycleTests COMMAND NotepadNextLifecycleTests)
+set_tests_properties(NotepadNextLifecycleTests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    RUN_SERIAL TRUE
+)
